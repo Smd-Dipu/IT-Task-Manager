@@ -15,7 +15,7 @@ export async function seed() {
       const r = db.prepare(`
         INSERT INTO users (name, email, password_hash, role, title, is_active)
         VALUES (?, ?, ?, ?, ?, 1)
-      `).run(name, email, hash('password123'), role, title);
+      `).run(name, email, hash('Taskflow@2026'), role, title);
       users.push({ id: Number(r.lastInsertRowid), name, email, role, team, dept });
       return users[users.length - 1];
     };

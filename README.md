@@ -30,7 +30,7 @@ port is exposed in preview environments.
 ## First Run
 
 The backend automatically seeds the database with sample users, teams, departments and
-tasks on first start. Sample accounts (all passwords: `password123`) can be used to
+tasks on first start. Sample accounts (all passwords: `Taskflow@2026`) can be used to
 evaluate the system until real user accounts are provisioned by an administrator.
 
 ## Features
