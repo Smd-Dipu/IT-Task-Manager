@@ -67,6 +67,11 @@ export default function SettingsPage() {
     setPrioModal(false);
   };
 
+  const saveKpi = async () => {
+    await save({ kpi: settings.kpi });
+    setKpiModal(false);
+  };
+
   const addHoliday = async () => {
     if (!holidayDate) return;
     await api.post('/settings/holidays', { date: holidayDate, name: holidayName });
@@ -184,11 +189,16 @@ export default function SettingsPage() {
 
       <div className="card p-5">
         <h3 className="font-bold flex items-center gap-2 mb-4"><Bell size={16} className="text-brand" /> Notification Rules</h3>
+        <div className="flex flex-wrap items-center gap-3 mb-3">
+          <label className="label !mb-0">Deadline approaching days:</label>
+          <input type="number" min={1} className="input !w-24" value={Number(settings.notificationRules.deadlineApproachingDays)}
+            onChange={(e) => save({ notificationRules: { ...settings.notificationRules, deadlineApproachingDays: Number(e.target.value) } })} />
+        </div>
         <div className="grid sm:grid-cols-2 gap-3">
-          {Object.entries(settings.notificationRules).map(([key, val]) => (
+          {Object.entries(settings.notificationRules).filter(([k]) => k !== 'deadlineApproachingDays').map(([key, val]) => (
             <Switch key={key} label={key.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase())}
-              checked={key === 'deadlineApproachingDays' ? true : !!val}
-              onChange={(v) => save({ notificationRules: { ...settings.notificationRules, [key]: key === 'deadlineApproachingDays' ? 1 : v } })} />
+              checked={!!val}
+              onChange={(v) => save({ notificationRules: { ...settings.notificationRules, [key]: v } })} />
           ))}
         </div>
       </div>
@@ -255,7 +265,7 @@ export default function SettingsPage() {
 
       <Modal open={kpiModal} onClose={() => setKpiModal(false)} title="KPI Configuration"
         footer={<><button className="btn btn-ghost" onClick={() => setKpiModal(false)}>Close</button>
-          <button className="btn btn-primary" onClick={() => { setKpiModal(false); toast('KPI settings saved'); }}><Save size={14} /> Done</button></>}>
+          <button className="btn btn-primary" onClick={saveKpi}><Save size={14} /> Done</button></>}>
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             {[

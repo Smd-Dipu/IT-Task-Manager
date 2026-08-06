@@ -64,7 +64,10 @@ export function getSettings() {
   const rows = db.prepare('SELECT key, value FROM settings').all();
   const out = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
   for (const r of rows) {
-    try { out[r.key] = { ...(out[r.key] ?? {}), ...JSON.parse(r.value) }; }
+    try {
+      const parsed = JSON.parse(r.value);
+      out[r.key] = Array.isArray(parsed) ? parsed : { ...(out[r.key] ?? {}), ...parsed };
+    }
     catch { /* ignore malformed */ }
   }
   cache = out;
@@ -77,7 +80,13 @@ export function getSetting(key) {
 
 export function setSetting(key, value) {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
-  const merged = row ? { ...JSON.parse(row.value), ...value } : value;
+  let merged;
+  if (Array.isArray(value)) {
+    merged = value;
+  } else {
+    const existing = row ? JSON.parse(row.value) : null;
+    merged = existing ? { ...existing, ...value } : value;
+  }
   db.prepare(`
     INSERT INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now'))
     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')
