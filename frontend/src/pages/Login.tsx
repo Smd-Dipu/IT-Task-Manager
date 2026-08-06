@@ -1,33 +1,26 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ListTodo, Mail, Lock, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { ListTodo, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { useTheme } from '../lib/theme';
 import { useToast } from '../components/ui';
 import { Sun, Moon } from 'lucide-react';
-
-const demoAccounts = [
-  { role: 'Super Admin', email: 'admin@taskflow.io', color: '#8b5cf6' },
-  { role: 'Admin', email: 'sarah@taskflow.io', color: '#6366f1' },
-  { role: 'User', email: 'emily@taskflow.io', color: '#22c55e' },
-];
 
 export default function Login() {
   const { login } = useAuth();
   const { dark, toggle } = useTheme();
   const navigate = useNavigate();
   const toast = useToast();
-  const [email, setEmail] = useState('admin@taskflow.io');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const submit = async (e?: React.FormEvent, creds?: { email: string; password: string }) => {
+  const submit = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    const use = creds || { email, password };
     setLoading(true);
     try {
-      await login(use.email, use.password);
+      await login(email, password);
       toast('Welcome back!');
       navigate('/dashboard');
     } catch (err: any) {
@@ -107,29 +100,6 @@ export default function Login() {
               {loading ? 'Signing in...' : 'Sign in'}
             </button>
           </form>
-
-          <div className="mt-6">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="flex-1 h-px bg-line" />
-              <span className="text-[11px] font-semibold text-ink3 uppercase">Demo accounts</span>
-              <div className="flex-1 h-px bg-line" />
-            </div>
-            <div className="space-y-2">
-              {demoAccounts.map((d) => (
-                <button key={d.email} onClick={() => submit(undefined, { email: d.email, password: 'password123' })}
-                  className="w-full flex items-center gap-3 card card-hover p-3 !rounded-xl cursor-pointer">
-                  <span className="w-8 h-8 rounded-lg flex items-center justify-center text-white" style={{ background: d.color }}>
-                    <ShieldCheck size={15} />
-                  </span>
-                  <span className="flex-1 text-left">
-                    <span className="block text-sm font-semibold">{d.role}</span>
-                    <span className="block text-xs text-ink3">{d.email}</span>
-                  </span>
-                  <span className="text-xs text-brand font-semibold">Login →</span>
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     </div>
