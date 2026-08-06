@@ -27,13 +27,11 @@ npm start
 The frontend dev server (`:5173`) proxies `/api` to the backend (`:3001`), so only one
 port is exposed in preview environments.
 
-## Demo Accounts (all passwords: `password123`)
+## First Run
 
-| Role | Email |
-|------|-------|
-| Super Admin | admin@taskflow.io |
-| Admin | sarah@taskflow.io |
-| User | emily@taskflow.io |
+The backend automatically seeds the database with sample users, teams, departments and
+tasks on first start. Sample accounts (all passwords: `password123`) can be used to
+evaluate the system until real user accounts are provisioned by an administrator.
 
 ## Features
 
