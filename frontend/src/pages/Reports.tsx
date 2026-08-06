@@ -35,7 +35,9 @@ export default function Reports() {
     { label: 'Tasks Excel', file: 'tasks.xlsx', path: `/reports/export?type=tasks&format=xlsx&dateKey=${dateKey}` },
     { label: 'Tasks PDF', file: 'tasks.pdf', path: `/reports/export?type=tasks&format=pdf&dateKey=${dateKey}` },
     { label: 'KPI Report', file: 'kpi.csv', path: `/reports/export?type=kpi&format=csv&dateKey=${dateKey}` },
+    { label: 'KPI PDF', file: 'kpi.pdf', path: `/reports/export?type=kpi&format=pdf&dateKey=${dateKey}` },
     { label: 'Activity Log', file: 'activity.csv', path: `/reports/export?type=activity&format=csv&dateKey=${dateKey}` },
+    { label: 'Activity PDF', file: 'activity.pdf', path: `/reports/export?type=activity&format=pdf&dateKey=${dateKey}` },
   ];
 
   return (

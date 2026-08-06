@@ -39,18 +39,17 @@ router.get('/tasks', (req, res) => {
   res.json(taskRowsForReport(req.user, req.query));
 });
 
-router.get('/analytics', (req, res) => {
-  const cfg = getSettings();
-  const admin = isAdmin(req.user);
-  const uid = req.user.id;
+function computeAnalytics(user, dateKey) {
+  const admin = isAdmin(user);
+  const uid = user.id;
   const scope = admin ? '1=1' : `(created_by = ${uid} OR id IN (SELECT task_id FROM task_assignees WHERE user_id = ${uid}))`;
-  const r = dateRangeFromKey(req.query.dateKey || '30d');
+  const r = dateRangeFromKey(dateKey || '30d');
 
-  const rows = db.prepare(`
+  const status = db.prepare(`
     SELECT status, COUNT(*) c, AVG(progress) avg_progress FROM tasks WHERE ${scope}
     GROUP BY status`).all();
-  const byPrio = db.prepare(`SELECT priority, COUNT(*) c FROM tasks WHERE ${scope} GROUP BY priority`).all();
-  const byType = db.prepare(`SELECT task_type, COUNT(*) c FROM tasks WHERE ${scope} GROUP BY task_type`).all();
+  const priority = db.prepare(`SELECT priority, COUNT(*) c FROM tasks WHERE ${scope} GROUP BY priority`).all();
+  const type = db.prepare(`SELECT task_type, COUNT(*) c FROM tasks WHERE ${scope} GROUP BY task_type`).all();
 
   const monthly = [];
   for (let i = 11; i >= 0; i--) {
@@ -72,7 +71,11 @@ router.get('/analytics', (req, res) => {
     GROUP BY u.id ORDER BY open_count DESC LIMIT 15
   `).all();
 
-  res.json({ status: rows, priority: byPrio, type: byType, monthly, workload });
+  return { status, priority, type, monthly, workload };
+}
+
+router.get('/analytics', (req, res) => {
+  res.json(computeAnalytics(req.user, req.query.dateKey));
 });
 
 router.get('/activity', (req, res) => {
@@ -108,6 +111,120 @@ router.get('/kpi', (req, res) => {
 
 function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+const CHART_COLORS = ['#6366f1', '#22c55e', '#f97316', '#3b82f6', '#a855f7', '#eab308', '#ef4444', '#14b8a6', '#ec4899', '#64748b'];
+
+function ensureSpace(doc, h) {
+  if (doc.y + h > doc.page.height - 60) doc.addPage();
+}
+
+function pdfCenterText(doc, text, cx, y, size, color) {
+  doc.font('Helvetica-Bold').fontSize(size);
+  if (color) doc.fillColor(color);
+  const w = doc.widthOfString(text);
+  doc.text(text, cx - w / 2, y, { width: Math.max(w + 4, 1) });
+}
+
+function drawDonut(doc, items, cx, cy, r, inner, centerTotal) {
+  const total = items.reduce((s, i) => s + (i.value || 0), 0) || 1;
+  let angle = -Math.PI / 2;
+  for (const it of items) {
+    const v = it.value || 0;
+    if (v <= 0) continue;
+    const sweep = (v / total) * Math.PI * 2;
+    doc.fillColor(it.color)
+      .moveTo(cx, cy)
+      .arc(cx, cy, r, angle, angle + sweep)
+      .lineTo(cx, cy)
+      .fill();
+    angle += sweep;
+  }
+  doc.fillColor('#ffffff').circle(cx, cy, inner).fill();
+  pdfCenterText(doc, String(centerTotal ?? ''), cx, cy - 5, 17, '#1e293b');
+  pdfCenterText(doc, 'tasks', cx, cy + 7, 7, '#94a3b8');
+}
+
+function drawDonutCard(doc, title, items, x, size) {
+  const top = doc.y;
+  doc.font('Helvetica-Bold').fontSize(11).fillColor('#1e293b').text(title, x, top);
+  const cx = x + size / 2 + 8;
+  const cy = top + 16 + size / 2;
+  const total = items.reduce((s, i) => s + (i.value || 0), 0);
+  drawDonut(doc, items, cx, cy, size / 2 - 10, size / 2 - 24, total);
+  let yy = top + 16;
+  const legendW = 220 - size;
+  for (const it of items) {
+    doc.rect(x + size + 22, yy, 8, 8).fill(it.color);
+    doc.font('Helvetica').fontSize(8).fillColor('#334155');
+    const label = `${it.name}  ${it.value ?? 0}`;
+    doc.text(label, x + size + 34, yy - 1, { width: legendW - 12 });
+    yy += 13;
+  }
+  return Math.max(top + 16 + size + 12, yy + 6);
+}
+
+function drawAreaChart(doc, title, monthly, series, x, y, w, h) {
+  doc.font('Helvetica-Bold').fontSize(11).fillColor('#1e293b').text(title, x, y);
+  const legendNames = series.map((s) => s.name);
+  let lx = x + w;
+  series.slice().reverse().forEach((s) => {
+    const nm = s.name;
+    const tw = doc.widthOfString(nm, { font: 'Helvetica', size: 7 });
+    doc.rect(lx - tw - 24, y + 3, 8, 8).fill(s.color);
+    doc.font('Helvetica').fontSize(7).fillColor('#475569').text(nm, lx - tw - 14, y + 1, { width: tw + 2 });
+    lx -= tw + 26;
+  });
+  const chartY = y + 22;
+  const padL = 28, padB = 20, padT = 6, padR = 8;
+  const pw = w - padL - padR, ph = h - padT - padB;
+  const base = chartY + padT + ph;
+  const max = Math.max(1, ...monthly.flatMap((m) => series.map((s) => m[s.key] || 0)));
+  doc.font('Helvetica').fontSize(7);
+  for (let i = 0; i <= 4; i++) {
+    const gy = base - (ph / 4) * i;
+    doc.strokeColor('#e2e8f0').lineWidth(0.6).moveTo(x + padL, gy).lineTo(x + padL + pw, gy).stroke();
+    const lab = String(Math.round((max / 4) * i));
+    doc.fillColor('#94a3b8').text(lab, x + padL - 4 - doc.widthOfString(lab), gy - 3);
+  }
+  const step = pw / Math.max(monthly.length - 1, 1);
+  series.forEach((s) => {
+    const pts = monthly.map((m, i) => [x + padL + i * step, base - ((m[s.key] || 0) / max) * ph]);
+    const poly = pts.map((p) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(' L ');
+    doc.path(`M ${poly} L ${pts[pts.length - 1][0].toFixed(1)} ${base} L ${pts[0][0].toFixed(1)} ${base} Z`);
+    doc.fillColor(s.color).fillOpacity(0.15).fill().fillOpacity(1);
+    doc.moveTo(pts[0][0], pts[0][1]);
+    pts.slice(1).forEach((p) => doc.lineTo(p[0], p[1]));
+    doc.strokeColor(s.color).lineWidth(1.6).stroke();
+    pts.forEach((p) => { doc.fillColor(s.color).circle(p[0], p[1], 1.5).fill(); });
+  });
+  doc.font('Helvetica').fontSize(6.5).fillColor('#64748b');
+  monthly.forEach((m, i) => {
+    const lx = x + padL + i * step;
+    const tw = doc.widthOfString(m.month);
+    doc.text(m.month, lx - tw / 2, base + 5, { width: tw + 2 });
+  });
+  doc.y = base + 22;
+}
+
+function drawHBarChart(doc, title, items, x, y, w, h) {
+  doc.font('Helvetica-Bold').fontSize(11).fillColor('#1e293b').text(title, x, y);
+  const chartY = y + 18;
+  const labelW = 130, barH = 11, gap = 5;
+  const maxV = Math.max(1, ...items.map((i) => i.value || 0));
+  const maxRows = Math.floor((h - 18) / (barH + gap));
+  const rows = items.slice(0, Math.max(maxRows, 1));
+  const maxW = w - labelW - 40;
+  rows.forEach((it, i) => {
+    const ry = chartY + i * (barH + gap);
+    doc.font('Helvetica').fontSize(8).fillColor('#475569');
+    doc.text(String(it.name || '').slice(0, 26), x, ry, { width: labelW - 8 });
+    const bw = Math.max((it.value / maxV) * maxW, 2);
+    doc.rect(x + labelW, ry + 1, bw, barH - 2).fill('#6366f1');
+    doc.font('Helvetica-Bold').fontSize(8).fillColor('#1e293b')
+      .text(String(it.value ?? ''), x + labelW + maxW + 6, ry, { width: 30 });
+  });
+  doc.y = chartY + rows.length * (barH + gap);
 }
 
 router.get('/export', (req, res) => {
@@ -180,10 +297,51 @@ router.get('/export', (req, res) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     doc.pipe(res);
-    doc.fontSize(18).text('TaskFlow Export', { align: 'center' });
+    doc.fontSize(18).font('Helvetica-Bold').fillColor('#1e293b').text('TaskFlow Export', { align: 'center' });
     doc.moveDown();
-    doc.fontSize(11).text(`Report: ${type} | Generated: ${new Date().toLocaleString()}`);
+    doc.font('Helvetica').fontSize(11).fillColor('#475569').text(`Report: ${type} | Generated: ${new Date().toLocaleString()}`);
     doc.moveDown();
+
+    if (type === 'tasks') {
+      const analytics = computeAnalytics(req.user, req.query.dateKey || '30d');
+      const cfg = getSettings();
+      const statusItems = analytics.status.map((s) => ({
+        name: (cfg.taskStatuses.find((st) => st.id === s.status) || {}).name || s.status,
+        value: s.c,
+        color: (cfg.taskStatuses.find((st) => st.id === s.status) || {}).color || '#94a3b8',
+      }));
+      const prioItems = analytics.priority.map((p) => ({
+        name: (cfg.priorities.find((pp) => pp.id === p.priority) || {}).name || p.priority,
+        value: p.c,
+        color: (cfg.priorities.find((pp) => pp.id === p.priority) || {}).color || '#94a3b8',
+      }));
+      const typeItems = analytics.type.map((t, i) => ({ name: t.task_type, value: t.c, color: CHART_COLORS[i % CHART_COLORS.length] }));
+
+      ensureSpace(doc, 190);
+      const y1 = drawDonutCard(doc, 'Status Distribution', statusItems, 40, 120);
+      const y2 = drawDonutCard(doc, 'Priority Distribution', prioItems, 320, 120);
+      doc.y = Math.max(y1, y2) + 8;
+
+      ensureSpace(doc, 200);
+      drawAreaChart(doc, 'Monthly Productivity (Added vs Completed)', analytics.monthly,
+        [{ key: 'added', name: 'Added', color: '#6366f1' }, { key: 'done', name: 'Completed', color: '#22c55e' }],
+        40, doc.y, 515, 175);
+      doc.y += 10;
+
+      ensureSpace(doc, 240);
+      drawHBarChart(doc, 'Workload Management (Open Tasks per User)',
+        analytics.workload.map((w) => ({ name: w.name, value: w.open_count })), 40, doc.y, 515, 210);
+      doc.y += 10;
+
+      doc.addPage();
+    } else if (type === 'kpi' && base.length) {
+      const scores = base.map((k) => ({ name: k.User, value: k['Final Score'] }));
+      ensureSpace(doc, 260);
+      drawHBarChart(doc, 'KPI Final Scores', scores, 40, doc.y, 515, Math.min(40 + scores.length * 16, 560));
+      doc.y += 10;
+      doc.addPage();
+    }
+
     const headers = Object.keys(base[0] || {});
     const colW = (doc.page.width - 80) / Math.max(headers.length, 1);
     const drawRow = (values, header) => {
