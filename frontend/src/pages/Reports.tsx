@@ -30,14 +30,16 @@ export default function Reports() {
 
   useEffect(() => { load(dateKey); }, [dateKey, load]);
 
+  const tzOffset = -new Date().getTimezoneOffset();
+  const exp = (type: string, format: string) => `/reports/export?type=${type}&format=${format}&dateKey=${dateKey}&tzOffset=${tzOffset}`;
   const exports = [
-    { label: 'Tasks CSV', file: 'tasks.csv', path: `/reports/export?type=tasks&format=csv&dateKey=${dateKey}` },
-    { label: 'Tasks Excel', file: 'tasks.xlsx', path: `/reports/export?type=tasks&format=xlsx&dateKey=${dateKey}` },
-    { label: 'Tasks PDF', file: 'tasks.pdf', path: `/reports/export?type=tasks&format=pdf&dateKey=${dateKey}` },
-    { label: 'KPI Report', file: 'kpi.csv', path: `/reports/export?type=kpi&format=csv&dateKey=${dateKey}` },
-    { label: 'KPI PDF', file: 'kpi.pdf', path: `/reports/export?type=kpi&format=pdf&dateKey=${dateKey}` },
-    { label: 'Activity Log', file: 'activity.csv', path: `/reports/export?type=activity&format=csv&dateKey=${dateKey}` },
-    { label: 'Activity PDF', file: 'activity.pdf', path: `/reports/export?type=activity&format=pdf&dateKey=${dateKey}` },
+    { label: 'Tasks CSV', file: 'tasks.csv', path: exp('tasks', 'csv') },
+    { label: 'Tasks Excel', file: 'tasks.xlsx', path: exp('tasks', 'xlsx') },
+    { label: 'Tasks PDF', file: 'tasks.pdf', path: exp('tasks', 'pdf') },
+    { label: 'KPI Report', file: 'kpi.csv', path: exp('kpi', 'csv') },
+    { label: 'KPI PDF', file: 'kpi.pdf', path: exp('kpi', 'pdf') },
+    { label: 'Activity Log', file: 'activity.csv', path: exp('activity', 'csv') },
+    { label: 'Activity PDF', file: 'activity.pdf', path: exp('activity', 'pdf') },
   ];
 
   return (

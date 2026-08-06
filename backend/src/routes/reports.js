@@ -109,8 +109,18 @@ router.get('/kpi', (req, res) => {
   res.json(list);
 });
 
-function escapeHtml(s) {
-  return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function toLocal(dt, offsetMin) {
+  if (dt === null || dt === undefined || dt === '') return '';
+  const s = String(dt);
+  if (s.length <= 10) return s;
+  let iso = s.includes('T') ? s : s.replace(' ', 'T');
+  if (!/[zZ]|[+-]\d{2}:?\d{2}$/.test(iso)) iso += 'Z';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return s;
+  if (offsetMin !== undefined && offsetMin !== null && offsetMin !== '') d.setMinutes(d.getMinutes() + Number(offsetMin));
+  const p = (n) => String(n).padStart(2, '0');
+  const hasSec = /:\d{2}:\d{2}/.test(s);
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}${hasSec ? ':' + p(d.getUTCSeconds()) : ''}`;
 }
 
 const CHART_COLORS = ['#6366f1', '#22c55e', '#f97316', '#3b82f6', '#a855f7', '#eab308', '#ef4444', '#14b8a6', '#ec4899', '#64748b'];
@@ -124,6 +134,18 @@ function pdfCenterText(doc, text, cx, y, size, color) {
   if (color) doc.fillColor(color);
   const w = doc.widthOfString(text);
   doc.text(text, cx - w / 2, y, { width: Math.max(w + 4, 1) });
+}
+
+function pdfTruncate(doc, text, maxW) {
+  let s = String(text ?? '');
+  if (doc.widthOfString(s) <= maxW) return s;
+  let lo = 0, hi = s.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (doc.widthOfString(s.slice(0, mid) + '\u2026') <= maxW) lo = mid;
+    else hi = mid - 1;
+  }
+  return s.slice(0, lo) + '\u2026';
 }
 
 function drawDonut(doc, items, cx, cy, r, inner, centerTotal) {
@@ -145,23 +167,22 @@ function drawDonut(doc, items, cx, cy, r, inner, centerTotal) {
   pdfCenterText(doc, 'tasks', cx, cy + 7, 7, '#94a3b8');
 }
 
-function drawDonutCard(doc, title, items, x, size) {
-  const top = doc.y;
-  doc.font('Helvetica-Bold').fontSize(11).fillColor('#1e293b').text(title, x, top);
-  const cx = x + size / 2 + 8;
+function drawDonutCard(doc, title, items, x, w, top) {
+  doc.font('Helvetica-Bold').fontSize(11).fillColor('#1e293b').text(title, x, top, { width: w });
+  const size = 104;
+  const cx = x + w / 2;
   const cy = top + 16 + size / 2;
   const total = items.reduce((s, i) => s + (i.value || 0), 0);
-  drawDonut(doc, items, cx, cy, size / 2 - 10, size / 2 - 24, total);
-  let yy = top + 16;
-  const legendW = 220 - size;
+  drawDonut(doc, items, cx, cy, size / 2 - 8, size / 2 - 20, total);
+  let yy = cy + size / 2 + 8;
   for (const it of items) {
-    doc.rect(x + size + 22, yy, 8, 8).fill(it.color);
+    doc.rect(cx - 34, yy, 8, 8).fill(it.color);
     doc.font('Helvetica').fontSize(8).fillColor('#334155');
     const label = `${it.name}  ${it.value ?? 0}`;
-    doc.text(label, x + size + 34, yy - 1, { width: legendW - 12 });
+    doc.text(pdfTruncate(doc, label, 76), cx - 22, yy - 1, { lineBreak: false });
     yy += 13;
   }
-  return Math.max(top + 16 + size + 12, yy + 6);
+  return yy + 4;
 }
 
 function drawAreaChart(doc, title, monthly, series, x, y, w, h) {
@@ -218,7 +239,7 @@ function drawHBarChart(doc, title, items, x, y, w, h) {
   rows.forEach((it, i) => {
     const ry = chartY + i * (barH + gap);
     doc.font('Helvetica').fontSize(8).fillColor('#475569');
-    doc.text(String(it.name || '').slice(0, 26), x, ry, { width: labelW - 8 });
+    doc.text(pdfTruncate(doc, String(it.name || ''), labelW - 10), x, ry, { lineBreak: false });
     const bw = Math.max((it.value / maxV) * maxW, 2);
     doc.rect(x + labelW, ry + 1, bw, barH - 2).fill('#6366f1');
     doc.font('Helvetica-Bold').fontSize(8).fillColor('#1e293b')
@@ -229,13 +250,14 @@ function drawHBarChart(doc, title, items, x, y, w, h) {
 
 router.get('/export', (req, res) => {
   const { type = 'tasks', format = 'csv' } = req.query;
+  const tzOffset = req.query.tzOffset;
   let base = [];
   if (type === 'tasks') {
     base = taskRowsForReport(req.user, req.query).map((t) => ({
       ID: t.id, Title: t.title, Status: t.status, Priority: t.priority, Difficulty: t.difficulty,
-      Type: t.task_type, Budget: t.budget, 'Est. Hours': t.estimated_hours, 'Due Date': t.due_date || '',
+      Type: t.task_type, Budget: t.budget, 'Est. Hours': t.estimated_hours, 'Due Date': toLocal(t.due_date, tzOffset),
       Progress: `${t.progress}%`, 'Created By': t.created_by_name, Reviewer: t.reviewer_name,
-      Team: t.team_name, Department: t.department_name, Created: t.created_at, Completed: t.completed_at || '',
+      Team: t.team_name, Department: t.department_name, Created: toLocal(t.created_at, tzOffset), Completed: toLocal(t.completed_at, tzOffset),
     }));
   } else if (type === 'kpi') {
     const cfg = getSettings();
@@ -263,7 +285,7 @@ router.get('/export', (req, res) => {
     if (!isAdminUser) { sql += ' AND a.user_id = ?'; params.push(req.user.id); }
     sql += ' ORDER BY a.created_at DESC LIMIT 2000';
     base = db.prepare(sql).all(...params).map((a) => ({
-      Timestamp: a.created_at, User: a.user_name || 'System', Action: a.action,
+      Timestamp: toLocal(a.created_at, tzOffset), User: a.user_name || 'System', Action: a.action,
       Entity: a.entity_type, 'Entity ID': a.entity_id ?? '', Details: a.details || '', IP: a.ip || '',
     }));
   }
@@ -293,13 +315,14 @@ router.get('/export', (req, res) => {
   }
 
   if (format === 'pdf') {
-    const doc = new PDFDocument({ margin: 40 });
+    const doc = new PDFDocument({ margin: 40, size: 'A4', layout: 'landscape' });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     doc.pipe(res);
+    const contentW = doc.page.width - 80;
     doc.fontSize(18).font('Helvetica-Bold').fillColor('#1e293b').text('TaskFlow Export', { align: 'center' });
     doc.moveDown();
-    doc.font('Helvetica').fontSize(11).fillColor('#475569').text(`Report: ${type} | Generated: ${new Date().toLocaleString()}`);
+    doc.font('Helvetica').fontSize(11).fillColor('#475569').text(`Report: ${type} | Generated: ${toLocal(new Date().toISOString(), tzOffset)}`);
     doc.moveDown();
 
     if (type === 'tasks') {
@@ -317,51 +340,50 @@ router.get('/export', (req, res) => {
       }));
       const typeItems = analytics.type.map((t, i) => ({ name: t.task_type, value: t.c, color: CHART_COLORS[i % CHART_COLORS.length] }));
 
-      ensureSpace(doc, 190);
-      const y1 = drawDonutCard(doc, 'Status Distribution', statusItems, 40, 120);
-      const y2 = drawDonutCard(doc, 'Priority Distribution', prioItems, 320, 120);
-      doc.y = Math.max(y1, y2) + 8;
+      const cardW = (contentW - 40) / 3;
+      const cardsTop = doc.y;
+      ensureSpace(doc, 240);
+      const y1 = drawDonutCard(doc, 'Status Distribution', statusItems, 40, cardW, cardsTop);
+      const y2 = drawDonutCard(doc, 'Priority Distribution', prioItems, 40 + cardW + 20, cardW, cardsTop);
+      const y3 = drawDonutCard(doc, 'Task Type Distribution', typeItems, 40 + 2 * (cardW + 20), cardW, cardsTop);
+      doc.y = Math.max(y1, y2, y3) + 10;
 
-      ensureSpace(doc, 200);
+      ensureSpace(doc, 210);
       drawAreaChart(doc, 'Monthly Productivity (Added vs Completed)', analytics.monthly,
         [{ key: 'added', name: 'Added', color: '#6366f1' }, { key: 'done', name: 'Completed', color: '#22c55e' }],
-        40, doc.y, 515, 175);
-      doc.y += 10;
+        40, doc.y, contentW, 190);
+      doc.y += 12;
 
-      ensureSpace(doc, 240);
+      ensureSpace(doc, 280);
       drawHBarChart(doc, 'Workload Management (Open Tasks per User)',
-        analytics.workload.map((w) => ({ name: w.name, value: w.open_count })), 40, doc.y, 515, 210);
-      doc.y += 10;
+        analytics.workload.map((w) => ({ name: w.name, value: w.open_count })), 40, doc.y, contentW, 250);
+      doc.y += 12;
 
       doc.addPage();
     } else if (type === 'kpi' && base.length) {
       const scores = base.map((k) => ({ name: k.User, value: k['Final Score'] }));
-      ensureSpace(doc, 260);
-      drawHBarChart(doc, 'KPI Final Scores', scores, 40, doc.y, 515, Math.min(40 + scores.length * 16, 560));
-      doc.y += 10;
+      ensureSpace(doc, 280);
+      drawHBarChart(doc, 'KPI Final Scores', scores, 40, doc.y, contentW, Math.min(40 + scores.length * 16, 580));
+      doc.y += 12;
       doc.addPage();
     }
 
     const headers = Object.keys(base[0] || {});
-    const colW = (doc.page.width - 80) / Math.max(headers.length, 1);
-    const drawRow = (values, header) => {
-      const y = doc.y;
-      let maxH = 0;
-      values.forEach((v, i) => {
-        doc.font(header ? 'Helvetica-Bold' : 'Helvetica').fontSize(7);
-        const text = String(v ?? '').slice(0, 60);
-        doc.text(text, 40 + i * colW, y, { width: colW - 6 });
-        maxH = Math.max(maxH, doc.heightOfString(text, { width: colW - 6 }));
+    const colW = contentW / Math.max(headers.length, 1);
+    const rowH = 15;
+    const tableRow = (cells, isHeader) => {
+      if (doc.y + rowH > doc.page.height - 40) doc.addPage();
+      const top = doc.y;
+      if (isHeader) doc.rect(40, top, contentW, rowH).fill('#eef2ff');
+      cells.forEach((v, i) => {
+        doc.font(isHeader ? 'Helvetica-Bold' : 'Helvetica').fontSize(isHeader ? 7.5 : 7);
+        doc.fillColor(isHeader ? '#1e293b' : '#334155');
+        doc.text(pdfTruncate(doc, v ?? '', colW - 6), 40 + i * colW + 3, top + 4, { lineBreak: false });
       });
-      doc.moveDown();
-      if (doc.y > doc.page.height - 80) doc.addPage();
-      return maxH;
+      doc.y = top + rowH;
     };
-    drawRow(headers, true);
-    doc.moveDown(-0.4);
-    for (const row of base.slice(0, 400)) {
-      drawRow(headers.map((h) => row[h]), false);
-    }
+    tableRow(headers, true);
+    base.slice(0, 400).forEach((row) => tableRow(headers.map((h) => row[h]), false));
     doc.end();
     return;
   }
