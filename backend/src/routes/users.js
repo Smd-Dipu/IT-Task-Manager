@@ -92,12 +92,30 @@ router.put('/:id', requireAdmin, (req, res) => {
   res.json(db.prepare('SELECT * FROM users WHERE id = ?').get(id));
 });
 
-router.delete('/:id', requireAdmin, (req, res) => {
+router.delete('/:id', requireRole('super_admin'), (req, res) => {
   const id = Number(req.params.id);
   if (id === req.user.id) return res.status(400).json({ error: 'You cannot delete your own account' });
   const u = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
   if (!u) return res.status(404).json({ error: 'User not found' });
-  db.prepare('DELETE FROM users WHERE id = ?').run(id);
+  if (u.role === 'super_admin') {
+    const superCount = db.prepare("SELECT COUNT(*) AS c FROM users WHERE role = 'super_admin'").get().c;
+    if (superCount <= 1) return res.status(400).json({ error: 'Cannot delete the last super admin' });
+  }
+  try {
+    db.exec('BEGIN');
+    db.prepare('UPDATE tasks SET created_by = NULL WHERE created_by = ?').run(id);
+    db.prepare('UPDATE tasks SET reviewer_id = NULL WHERE reviewer_id = ?').run(id);
+    db.prepare('UPDATE approvals SET approver_id = NULL WHERE approver_id = ?').run(id);
+    db.prepare('DELETE FROM approvals WHERE requester_id = ?').run(id);
+    db.prepare('DELETE FROM task_comments WHERE user_id = ?').run(id);
+    db.prepare('DELETE FROM task_attachments WHERE user_id = ?').run(id);
+    db.prepare('DELETE FROM time_entries WHERE user_id = ?').run(id);
+    db.prepare('DELETE FROM users WHERE id = ?').run(id);
+    db.exec('COMMIT');
+  } catch (e) {
+    db.exec('ROLLBACK');
+    return res.status(500).json({ error: 'Failed to delete user: ' + (e.message || e) });
+  }
   audit(req, 'user.delete', 'user', id, `Deleted user ${u.name}`);
   res.json({ ok: true });
 });

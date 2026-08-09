@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Plus, Pencil, KeyRound, Power, Search, UserCog } from 'lucide-react';
+import { Plus, Pencil, KeyRound, Power, Search, Trash2, UserCog } from 'lucide-react';
 import { api } from '../lib/api';
 import type { User } from '../lib/types';
 import { useAuth } from '../lib/auth';
@@ -10,7 +10,7 @@ const ROLES = ['user', 'admin', 'super_admin'];
 
 export default function Users() {
   const toast = useToast();
-  const { user: me } = useAuth();
+  const { user: me, isSuper } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [teams, setTeams] = useState<{ id: number; name: string }[]>([]);
   const [depts, setDepts] = useState<{ id: number; name: string }[]>([]);
@@ -19,6 +19,7 @@ export default function Users() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<User | null>(null);
   const [resetTarget, setResetTarget] = useState<User | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
   const [form, setForm] = useState({ name: '', email: '', password: '', role: 'user', title: '', team_id: '', department_id: '' });
 
   const load = useCallback(async () => {
@@ -75,6 +76,16 @@ export default function Users() {
     load();
   };
 
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await api.delete(`/users/${deleteTarget.id}`);
+      toast('User deleted');
+      setDeleteTarget(null);
+      load();
+    } catch (e: any) { toast(e.message, 'error'); }
+  };
+
   const filtered = users.filter((u) => (u.name + u.email + (u.role || '')).toLowerCase().includes(q.toLowerCase()));
   const roleColor: Record<string, string> = { super_admin: '#8b5cf6', admin: '#6366f1', user: '#22c55e' };
 
@@ -119,6 +130,11 @@ export default function Users() {
                 <button className={cx('btn btn-xs', u.is_active ? 'btn-danger' : 'btn-ghost')} onClick={() => toggleActive(u)} disabled={u.id === me?.id}>
                   <Power size={12} /> {u.is_active ? 'Deactivate' : 'Activate'}
                 </button>
+                {isSuper && (
+                  <button className="btn btn-ghost btn-xs !text-red-500" onClick={() => setDeleteTarget(u)} disabled={u.id === me?.id}>
+                    <Trash2 size={12} /> Delete
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -172,6 +188,9 @@ export default function Users() {
 
       <ConfirmModal open={!!resetTarget} onClose={() => setResetTarget(null)} onConfirm={resetPassword}
         title="Reset password?" message={`Reset the password for ${resetTarget?.name}? A temporary password will be shown.`} confirmLabel="Reset" danger />
+
+      <ConfirmModal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={confirmDelete}
+        title="Delete user?" message={`Permanently delete ${deleteTarget?.name}? This removes their comments, time entries, approvals and attachments, and unassigns them from tasks. This cannot be undone.`} confirmLabel="Delete" danger />
     </div>
   );
 }
