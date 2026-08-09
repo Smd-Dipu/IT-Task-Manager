@@ -46,7 +46,7 @@ export async function seed() {
       deptIds.push(Number(r.lastInsertRowid));
     }
 
-    const superAdmin = addUser('Alex Morgan', 'admin@taskflow.io', 'super_admin', teamIds[0], deptIds[0], 'Chief Executive Officer');
+    const superAdmin = addUser('Smd Dipu', 'admin@taskflow.io', 'super_admin', teamIds[0], deptIds[0], 'Chief Executive Officer');
     const admins = [
       addUser('Sarah Chen', 'sarah@taskflow.io', 'admin', teamIds[0], deptIds[0], 'Engineering Manager'),
       addUser('David Park', 'david@taskflow.io', 'admin', teamIds[2], deptIds[3], 'Operations Director'),
