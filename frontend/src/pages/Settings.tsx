@@ -30,7 +30,7 @@ export default function SettingsPage() {
 
   if (!settings) return <div className="max-w-4xl mx-auto text-center py-20 text-ink2">Loading settings...</div>;
 
-  const save = async (patch: Partial<Settings>) => {
+  const save = async (patch: Partial<Settings>): Promise<boolean> => {
     setSaving(true);
     try {
       await api.put('/settings', patch);
@@ -38,38 +38,34 @@ export default function SettingsPage() {
       setSettings(next);
       setGlobalSettings?.(next);
       toast('Settings saved');
-    } catch (e: any) { toast(e.message, 'error'); }
+      return true;
+    } catch (e: any) { toast(e.message, 'error'); return false; }
     finally { setSaving(false); }
   };
 
   const saveStatus = async () => {
     if (!editStatus) return;
     const list = settings.taskStatuses.map((s) => s.id === editStatus.id ? { ...s, name: editStatus.name, color: editStatus.color } : s);
-    await save({ taskStatuses: list });
-    setStatusModal(false);
+    if (await save({ taskStatuses: list })) setStatusModal(false);
   };
   const addStatus = async () => {
     if (!newStatus.name || !newStatus.id) return toast('Name and id required', 'error');
     const list = [...settings.taskStatuses, newStatus];
-    await save({ taskStatuses: list });
-    setStatusModal(false);
+    if (await save({ taskStatuses: list })) setStatusModal(false);
   };
   const savePrio = async () => {
     if (!editPrio) return;
     const list = settings.priorities.map((p) => p.id === editPrio.id ? { ...p, name: editPrio.name, color: editPrio.color } : p);
-    await save({ priorities: list });
-    setPrioModal(false);
+    if (await save({ priorities: list })) setPrioModal(false);
   };
   const addPrio = async () => {
     if (!newPrio.name || !newPrio.id) return toast('Name and id required', 'error');
     const list = [...settings.priorities, { ...newPrio, weight: 3 }];
-    await save({ priorities: list });
-    setPrioModal(false);
+    if (await save({ priorities: list })) setPrioModal(false);
   };
 
   const saveKpi = async () => {
-    await save({ kpi: settings.kpi });
-    setKpiModal(false);
+    if (await save({ kpi: settings.kpi })) setKpiModal(false);
   };
 
   const addHoliday = async () => {

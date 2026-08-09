@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Flag, CalendarDays } from 'lucide-react';
 import type { Task } from '../../lib/types';
 import { useSettings } from '../../lib/settings';
-import { statusById, fmtDate, isOverdue, cx } from '../../lib/utils';
+import { statusById, priorityById, fmtDate, isOverdue, cx } from '../../lib/utils';
 import { Avatar, Badge } from '../ui';
 
 export function TimelineView({ tasks }: { tasks: Task[] }) {
@@ -16,7 +16,7 @@ export function TimelineView({ tasks }: { tasks: Task[] }) {
       <div className="absolute left-[11px] top-2 bottom-2 w-0.5 bg-line" />
       {sorted.map((t) => {
         const st = statusById(settings, t.status);
-        const pr = statusById(settings, t.priority);
+        const pr = priorityById(settings, t.priority);
         const overdue = isOverdue(t);
         return (
           <div key={t.id} className="relative pl-8 pb-4 anim-in">

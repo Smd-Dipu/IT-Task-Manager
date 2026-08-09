@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import multer from 'multer';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -46,8 +47,14 @@ if (fs.existsSync(publicDir)) {
 app.use((req, res) => res.status(404).json({ error: 'Not found' }));
 
 app.use((err, req, res, next) => {
+  if (err.type === 'entity.parse.failed' || err instanceof SyntaxError) {
+    return res.status(400).json({ error: 'Invalid JSON in request body' });
+  }
+  if (err instanceof multer.MulterError) {
+    return res.status(400).json({ error: err.code === 'LIMIT_FILE_SIZE' ? 'File is too large' : 'Upload failed: ' + err.message });
+  }
   console.error(err);
-  res.status(500).json({ error: err.message || 'Internal server error' });
+  res.status(500).json({ error: 'Internal server error' });
 });
 
 const PORT = process.env.PORT || 3001;

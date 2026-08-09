@@ -76,14 +76,14 @@ router.get('/', (req, res) => {
   const teamPerf = db.prepare(`
     SELECT te.name AS name, te.id, COUNT(t.id) AS total,
       SUM(CASE WHEN t.status='done' THEN 1 ELSE 0 END) AS done
-    FROM teams te LEFT JOIN tasks t ON t.team_id = te.id
+    FROM teams te LEFT JOIN tasks t ON t.team_id = te.id AND ${scope}
     GROUP BY te.id ORDER BY done DESC
   `).all();
 
   const deptPerf = db.prepare(`
     SELECT d.name AS name, d.id, COUNT(t.id) AS total,
       SUM(CASE WHEN t.status='done' THEN 1 ELSE 0 END) AS done
-    FROM departments d LEFT JOIN tasks t ON t.department_id = d.id
+    FROM departments d LEFT JOIN tasks t ON t.department_id = d.id AND ${scope}
     GROUP BY d.id ORDER BY done DESC
   `).all();
 
@@ -93,6 +93,7 @@ router.get('/', (req, res) => {
     FROM task_assignees ta
     JOIN users u ON u.id = ta.user_id
     JOIN tasks t ON t.id = ta.task_id
+    WHERE ${scope}
     GROUP BY u.id ORDER BY done DESC LIMIT 12
   `).all();
 

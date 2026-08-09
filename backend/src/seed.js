@@ -196,7 +196,3 @@ export async function seed() {
     throw e;
   }
 }
-
-export function adminUser() {
-  return db.prepare(`SELECT id, name, email, role FROM users WHERE role = 'super_admin' LIMIT 1`).get();
-}

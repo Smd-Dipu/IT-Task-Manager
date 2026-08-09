@@ -1,7 +1,11 @@
 import jwt from 'jsonwebtoken';
+import crypto from 'node:crypto';
 import { db } from './db.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'taskflow-dev-secret-change-me';
+const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
+if (!process.env.JWT_SECRET) {
+  console.warn('[security] JWT_SECRET is not set; using an ephemeral random secret. Sessions will be invalidated on restart. Set JWT_SECRET for production.');
+}
 
 export function signToken(user) {
   return jwt.sign({ id: user.id, role: user.role, email: user.email }, JWT_SECRET, { expiresIn: '7d' });

@@ -33,6 +33,13 @@ The backend automatically seeds the database with sample users, teams, departmen
 tasks on first start. Sample accounts (all passwords: `Taskflow@2026`) can be used to
 evaluate the system until real user accounts are provisioned by an administrator.
 
+### Production Configuration
+
+Set a strong `JWT_SECRET` environment variable before deploying. If it is not set, the
+backend falls back to an ephemeral random secret and prints a warning — every restart
+then invalidates all existing sessions. Login is rate-limited (10 attempts per
+15 minutes per account) to deter brute force attacks.
+
 ## Features
 
 ### Roles & Permissions

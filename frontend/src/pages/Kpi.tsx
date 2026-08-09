@@ -1,11 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Trophy, TrendingDown, Award, Download, Crown, Timer, Target, AlertTriangle, Star, Zap } from 'lucide-react';
+import { Trophy, TrendingDown, Award, Download, Timer, Target, AlertTriangle } from 'lucide-react';
 import { api, downloadExport } from '../lib/api';
 import type { KpiEntry } from '../lib/types';
 import { Avatar, Badge, useToast, Skeleton, EmptyState } from '../components/ui';
-import { BarChartCard, LineChartCard, DonutChartCard, ChartCard } from '../components/charts';
+import { BarChartCard, LineChartCard, ChartCard } from '../components/charts';
 import { DATE_PRESETS } from '../lib/utils';
-import { buildQuery } from '../lib/utils';
 
 interface Overview {
   top: (KpiEntry & { team_name?: string })[];
@@ -39,6 +38,10 @@ export default function Kpi() {
 
   useEffect(() => { load(period); }, [period, load]);
 
+  const doExport = async () => {
+    try { await downloadExport(`/reports/export?type=kpi&format=csv&dateKey=${period}`, 'kpi.csv'); } catch (e: any) { toast(e.message, 'error'); }
+  };
+
   if (loading && !overview) return <div className="max-w-[1200px] mx-auto space-y-4"><Skeleton className="h-10 w-64" /><div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-32" />)}</div></div>;
 
   return (
@@ -52,7 +55,7 @@ export default function Kpi() {
           <select className="input !w-auto" value={period} onChange={(e) => setPeriod(e.target.value)}>
             {DATE_PRESETS.filter((d) => d.key !== 'custom').map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
           </select>
-          <button className="btn btn-primary btn-sm" onClick={() => downloadExport(`/reports/export?type=kpi&format=csv&dateKey=${period}`, 'kpi.csv')}>
+          <button className="btn btn-primary btn-sm" onClick={doExport}>
             <Download size={14} /> Export
           </button>
         </div>

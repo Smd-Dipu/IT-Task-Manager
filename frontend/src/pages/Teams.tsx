@@ -16,9 +16,12 @@ export default function Teams() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [t, u] = await Promise.all([api.get<Team[]>('/teams'), api.get<User[]>('/users')]);
-    setTeams(t); setUsers(u); setLoading(false);
-  }, []);
+    try {
+      const [t, u] = await Promise.all([api.get<Team[]>('/teams'), api.get<User[]>('/users')]);
+      setTeams(t); setUsers(u);
+    } catch (e: any) { toast(e.message, 'error'); }
+    finally { setLoading(false); }
+  }, [toast]);
   useEffect(() => { load(); }, [load]);
 
   const openForm = (t?: Team) => {

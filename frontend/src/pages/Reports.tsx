@@ -4,7 +4,7 @@ import { api, downloadExport } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useToast, Skeleton, Badge, EmptyState } from '../components/ui';
 import { ChartCard, BarChartCard, DonutChartCard, AreaChartCard } from '../components/charts';
-import { DATE_PRESETS, buildQuery, timeAgo } from '../lib/utils';
+import { DATE_PRESETS, timeAgo } from '../lib/utils';
 
 export default function Reports() {
   const { isAdmin } = useAuth();
@@ -32,6 +32,9 @@ export default function Reports() {
 
   const tzOffset = -new Date().getTimezoneOffset();
   const exp = (type: string, format: string) => `/reports/export?type=${type}&format=${format}&dateKey=${dateKey}&tzOffset=${tzOffset}`;
+  const doExport = async (path: string, file: string) => {
+    try { await downloadExport(path, file); } catch (e: any) { toast(e.message, 'error'); }
+  };
   const exports = [
     { label: 'Tasks CSV', file: 'tasks.csv', path: exp('tasks', 'csv') },
     { label: 'Tasks Excel', file: 'tasks.xlsx', path: exp('tasks', 'xlsx') },
@@ -59,7 +62,7 @@ export default function Reports() {
               { icon: FileSpreadsheet, label: 'XLSX', p: exports[1].path, f: exports[1].file },
               { icon: FileJson, label: 'PDF', p: exports[2].path, f: exports[2].file },
             ].map((e) => (
-              <button key={e.label} className="btn btn-ghost btn-sm" onClick={() => downloadExport(e.p, e.f)} title={`Export ${e.label}`}>
+              <button key={e.label} className="btn btn-ghost btn-sm" onClick={() => doExport(e.p, e.f)} title={`Export ${e.label}`}>
                 <e.icon size={14} /> <span className="hidden sm:inline">{e.label}</span>
               </button>
             ))}
@@ -86,7 +89,7 @@ export default function Reports() {
 
           <ChartCard title="Workload Management" subtitle="Open task count per user">
             <div className="space-y-2.5">
-              {analytics?.workload.map((w: any) => (
+              {(analytics?.workload || []).map((w: any) => (
                 <div key={w.id} className="flex items-center gap-3">
                   <span className="text-sm w-32 truncate">{w.name}</span>
                   <div className="flex-1">
@@ -135,7 +138,7 @@ export default function Reports() {
               <ChartCard title="Quick Export" subtitle="Export filtered reports">
                 <div className="space-y-2">
                   {exports.map((e) => (
-                    <button key={e.label} onClick={() => downloadExport(e.path, e.file)}
+                    <button key={e.label} onClick={() => doExport(e.path, e.file)}
                       className="w-full flex items-center gap-2.5 p-2.5 rounded-xl bg-card2/60 hover:bg-card2 transition-colors text-sm">
                       <Download size={14} className="text-brand" />
                       <span className="font-medium flex-1 text-left">{e.label}</span>

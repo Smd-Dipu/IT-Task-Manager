@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { UserCircle, KeyRound, Upload, Mail, Building2, Users, Award, Shield } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { useToast, Avatar, Badge, Skeleton, Switch } from '../components/ui';
+import { useToast, Avatar, Badge, Skeleton } from '../components/ui';
 import { fmtDate } from '../lib/utils';
 
 export default function Profile() {
@@ -13,13 +13,11 @@ export default function Profile() {
   const [saving, setSaving] = useState(false);
   const [pwdSaving, setPwdSaving] = useState(false);
   const [kpi, setKpi] = useState<any>(null);
-  const [stats, setStats] = useState<any>(null);
 
   useEffect(() => {
     if (!user) return;
     setProfile({ name: user.name, title: user.title || '', phone: user.phone || '' });
     api.get<any>('/kpi/me').then(setKpi).catch(() => {});
-    api.get('/dashboard', { dateKey: 'month' }).then((d: any) => setStats(d.summary)).catch(() => {});
   }, [user]);
 
   if (!user) return null;

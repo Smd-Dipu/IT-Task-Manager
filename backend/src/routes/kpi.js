@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { db } from '../db.js';
 import { requireAuth, requireAdmin } from '../middleware.js';
-import { dateRangeFromKey, startOfMonth, startOfYear } from '../utils.js';
+import { dateRangeFromKey } from '../utils.js';
 import { getSettings, getDifficultyById, getPriorityById } from '../config.js';
 
 const router = Router();

@@ -44,7 +44,9 @@ export default function Audit() {
           <h1 className="text-2xl font-extrabold flex items-center gap-2"><ScrollText size={24} className="text-brand" /> Audit Logs</h1>
           <p className="text-sm text-ink2 mt-0.5">Every action is recorded for compliance and traceability</p>
         </div>
-        <button className="btn btn-primary btn-sm" onClick={() => downloadExport(`/reports/export?type=activity&format=csv&dateKey=${dateKey || '30d'}`, 'audit-logs.csv')}>
+        <button className="btn btn-primary btn-sm" onClick={async () => {
+          try { await downloadExport(`/reports/export?type=activity&format=csv&dateKey=${dateKey || '30d'}`, 'audit-logs.csv'); } catch (e: any) { toast(e.message, 'error'); }
+        }}>
           <Download size={14} /> Export
         </button>
       </div>

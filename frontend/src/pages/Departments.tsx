@@ -16,9 +16,12 @@ export default function Departments() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [d, u] = await Promise.all([api.get<Department[]>('/departments'), api.get<User[]>('/users')]);
-    setDepts(d); setUsers(u); setLoading(false);
-  }, []);
+    try {
+      const [d, u] = await Promise.all([api.get<Department[]>('/departments'), api.get<User[]>('/users')]);
+      setDepts(d); setUsers(u);
+    } catch (e: any) { toast(e.message, 'error'); }
+    finally { setLoading(false); }
+  }, [toast]);
   useEffect(() => { load(); }, [load]);
 
   const openForm = (d?: Department) => {

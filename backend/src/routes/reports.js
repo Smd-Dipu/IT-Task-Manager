@@ -311,7 +311,10 @@ router.get('/export', (req, res) => {
     for (const row of base) ws.addRow(headers.map((h) => row[h] ?? ''));
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    return wb.xlsx.write(res).then(() => res.end());
+    return wb.xlsx.write(res).then(() => res.end()).catch((e) => {
+      if (!res.headersSent) return res.status(500).json({ error: 'Export failed: ' + (e.message || e) });
+      res.end();
+    });
   }
 
   if (format === 'pdf') {

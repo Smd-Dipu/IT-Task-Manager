@@ -1,11 +1,16 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
+import crypto from 'node:crypto';
 import { db } from '../db.js';
 import { requireAuth, requireAdmin, requireRole, getPublicUser, audit, notify } from '../middleware.js';
 import { initials } from '../utils.js';
 
 const router = Router();
 router.use(requireAuth);
+
+function generateTempPassword() {
+  return crypto.randomBytes(4).toString('hex') + 'A1!';
+}
 
 function userRow(u) {
   return { ...getPublicUser(u), initials: initials(u.name) };
@@ -63,16 +68,19 @@ router.get('/:id', (req, res) => {
 router.post('/', requireAdmin, (req, res) => {
   const { name, email, password, role, title, team_id, department_id, phone } = req.body || {};
   if (!name || !email || !password) return res.status(400).json({ error: 'Name, email and password are required' });
+  const newRole = role || 'user';
+  if (!['user', 'admin', 'super_admin'].includes(newRole)) return res.status(400).json({ error: 'Invalid role' });
+  if (newRole === 'super_admin' && req.user.role !== 'super_admin') return res.status(403).json({ error: 'Only a super admin can create super admin accounts' });
   const exists = db.prepare('SELECT id FROM users WHERE lower(email) = lower(?)').get(email);
   if (exists) return res.status(400).json({ error: 'Email already in use' });
   const r = db.prepare(`
     INSERT INTO users (name, email, password_hash, role, title, phone, team_id, department_id)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(name, email.trim(), bcrypt.hashSync(String(password), 10), role || 'user', title || '', phone || '', team_id || null, department_id || null);
+  `).run(name, email.trim(), bcrypt.hashSync(String(password), 10), newRole, title || '', phone || '', team_id || null, department_id || null);
   const id = Number(r.lastInsertRowid);
-  audit(req, 'user.create', 'user', id, `Created user ${name} (${role})`);
+  audit(req, 'user.create', 'user', id, `Created user ${name} (${newRole})`);
   notify(id, 'system', 'Welcome to TaskFlow', `Your account was created by an administrator.`);
-  res.json(db.prepare('SELECT * FROM users WHERE id = ?').get(id));
+  res.json(userRow(db.prepare('SELECT * FROM users WHERE id = ?').get(id)));
 });
 
 router.put('/:id', requireAdmin, (req, res) => {
@@ -80,6 +88,16 @@ router.put('/:id', requireAdmin, (req, res) => {
   const u = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
   if (!u) return res.status(404).json({ error: 'User not found' });
   const { name, role, title, team_id, department_id, phone, is_active } = req.body || {};
+  if (u.role === 'super_admin' && req.user.role !== 'super_admin') {
+    return res.status(403).json({ error: 'Only a super admin can modify a super admin account' });
+  }
+  if (role !== undefined && !['user', 'admin', 'super_admin'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
+  if (role === 'super_admin' && req.user.role !== 'super_admin') {
+    return res.status(403).json({ error: 'Only a super admin can grant the super admin role' });
+  }
+  if (id === req.user.id && role !== undefined && role !== u.role && req.user.role !== 'super_admin') {
+    return res.status(403).json({ error: 'You cannot change your own role' });
+  }
   db.prepare(`
     UPDATE users SET name = COALESCE(?, name), role = COALESCE(?, role), title = COALESCE(?, title),
       phone = COALESCE(?, phone), team_id = ?, department_id = ?,
@@ -89,7 +107,7 @@ router.put('/:id', requireAdmin, (req, res) => {
   if (u.role === 'user' && role && role !== 'user' && is_active === 1) {
     notify(id, 'system', 'Role updated', `Your role was changed to ${role}.`);
   }
-  res.json(db.prepare('SELECT * FROM users WHERE id = ?').get(id));
+  res.json(userRow(db.prepare('SELECT * FROM users WHERE id = ?').get(id)));
 });
 
 router.delete('/:id', requireRole('super_admin'), (req, res) => {
@@ -125,7 +143,8 @@ router.post('/:id/reset-password', requireAdmin, (req, res) => {
   const { newPassword } = req.body || {};
   const u = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
   if (!u) return res.status(404).json({ error: 'User not found' });
-  const pwd = newPassword || 'password123';
+  if (newPassword != null && typeof newPassword !== 'string') return res.status(400).json({ error: 'Password must be a string' });
+  const pwd = newPassword && newPassword.length >= 6 ? newPassword : generateTempPassword();
   db.prepare('UPDATE users SET password_hash = ?, updated_at = datetime(\'now\') WHERE id = ?')
     .run(bcrypt.hashSync(String(pwd), 10), id);
   audit(req, 'user.reset_password', 'user', id, `Reset password for ${u.name}`);
@@ -150,7 +169,7 @@ router.put('/me/profile', (req, res) => {
   db.prepare('UPDATE users SET name = COALESCE(?, name), title = COALESCE(?, title), phone = COALESCE(?, phone), avatar = COALESCE(?, avatar), updated_at = datetime(\'now\') WHERE id = ?')
     .run(name ?? null, title ?? null, phone ?? null, avatar ?? null, req.user.id);
   audit(req, 'user.profile_update', 'user', req.user.id, 'Updated own profile');
-  res.json(db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id));
+  res.json(getPublicUser(db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id)));
 });
 
 export default router;

@@ -68,7 +68,11 @@ export async function downloadExport(path: string, filename: string) {
   const res = await fetch(`/api${path}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
-  if (!res.ok) throw new ApiError('Export failed', res.status);
+  if (!res.ok) {
+    let message = `Export failed (${res.status})`;
+    try { const j = await res.json(); if (j?.error) message = j.error; } catch { /* keep default */ }
+    throw new ApiError(message, res.status);
+  }
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

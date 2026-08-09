@@ -6,6 +6,10 @@ import { useSettings } from '../../lib/settings';
 import { statusById, cx } from '../../lib/utils';
 import { Badge } from '../ui';
 
+function localDateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export function CalendarView({ tasks }: { tasks: Task[] }) {
   const settings = useSettings();
   const navigate = useNavigate();
@@ -34,7 +38,7 @@ export function CalendarView({ tasks }: { tasks: Task[] }) {
     const weeksArr: { date: Date; inMonth: boolean; tasks: Task[] }[][] = [];
     for (let w = 0; w < 6; w++) {
       const row = days.slice(w * 7, w * 7 + 7).map((d) => {
-        const key = d.toISOString().slice(0, 10);
+        const key = localDateKey(d);
         return { date: d, inMonth: d.getMonth() === m, tasks: byDate[key] || [] };
       });
       weeksArr.push(row);
@@ -43,7 +47,7 @@ export function CalendarView({ tasks }: { tasks: Task[] }) {
   }, [cursor, tasks]);
 
   const monthLabel = cursor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayKey = localDateKey(new Date());
 
   return (
     <div className="card overflow-hidden">
@@ -61,7 +65,7 @@ export function CalendarView({ tasks }: { tasks: Task[] }) {
       {weeks.map((week, wi) => (
         <div key={wi} className="grid grid-cols-7 border-b border-line last:border-0">
           {week.map((cell, ci) => {
-            const key = cell.date.toISOString().slice(0, 10);
+            const key = localDateKey(cell.date);
             const isToday = key === todayKey;
             return (
               <div key={ci} className={cx('min-h-[92px] p-1.5 border-r border-line last:border-0', !cell.inMonth && 'opacity-40 bg-card2/50')}>

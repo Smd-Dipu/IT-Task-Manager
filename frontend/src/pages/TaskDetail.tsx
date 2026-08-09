@@ -34,6 +34,7 @@ export default function TaskDetail() {
   const [timeNote, setTimeNote] = useState('');
   const [uploading, setUploading] = useState(false);
   const [users, setUsers] = useState<{ id: number; name: string }[]>([]);
+  const [progressDraft, setProgressDraft] = useState<Record<number, number>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -63,36 +64,90 @@ export default function TaskDetail() {
   const overallProgress = task.progress;
 
   const changeStatus = async (status: string) => {
-    await api.post(`/tasks/${task.id}/status`, { status });
-    toast('Status updated');
-    load();
+    try {
+      await api.post(`/tasks/${task.id}/status`, { status });
+      toast('Status updated');
+      load();
+    } catch (e: any) { toast(e.message, 'error'); }
   };
 
   const addComment = async () => {
     if (!comment.trim()) return;
-    const c = await api.post<Comment>(`/tasks/${task.id}/comments`, { content: comment, mentions: mentionUsers });
-    toast('Comment added');
-    setComment('');
-    setMentionUsers([]);
-    setTask((t) => t && ({ ...t, comments: [c, ...(t.comments || [])], comments_count: (t.comments_count || 0) + 1 }));
-    load();
+    try {
+      const c = await api.post<Comment>(`/tasks/${task.id}/comments`, { content: comment, mentions: mentionUsers });
+      toast('Comment added');
+      setComment('');
+      setMentionUsers([]);
+      setTask((t) => t && ({ ...t, comments: [c, ...(t.comments || [])], comments_count: (t.comments_count || 0) + 1 }));
+      load();
+    } catch (e: any) { toast(e.message, 'error'); }
   };
 
   const addCheck = async () => {
     if (!newCheck.trim()) return;
-    await api.post(`/tasks/${task.id}/checklist`, { title: newCheck });
-    setNewCheck('');
-    load();
+    try {
+      await api.post(`/tasks/${task.id}/checklist`, { title: newCheck });
+      setNewCheck('');
+      load();
+    } catch (e: any) { toast(e.message, 'error'); }
   };
 
   const toggleCheck = async (cid: number, done: boolean) => {
-    await api.put(`/tasks/${task.id}/checklist/${cid}`, { done });
-    load();
+    try {
+      await api.put(`/tasks/${task.id}/checklist/${cid}`, { done });
+      load();
+    } catch (e: any) { toast(e.message, 'error'); }
+  };
+
+  const deleteCheck = async (cid: number) => {
+    try { await api.delete(`/tasks/${task.id}/checklist/${cid}`); load(); } catch (e: any) { toast(e.message, 'error'); }
   };
 
   const updateProgress = async (uid: number, progress: number) => {
-    await api.put(`/tasks/${task.id}/assignees/${uid}/progress`, { progress });
-    load();
+    try {
+      await api.put(`/tasks/${task.id}/assignees/${uid}/progress`, { progress });
+      setProgressDraft((d) => { const { [uid]: _, ...rest } = d; return rest; });
+      load();
+    } catch (e: any) { toast(e.message, 'error'); }
+  };
+
+  const deleteAttachment = async (aid: number) => {
+    try { await api.delete(`/uploads/${aid}`); load(); } catch (e: any) { toast(e.message, 'error'); }
+  };
+
+  const decideApproval = async (aid: number, status: string) => {
+    try { await api.post(`/tasks/${task.id}/approvals/${aid}`, { status }); load(); } catch (e: any) { toast(e.message, 'error'); }
+  };
+
+  const logTime = async () => {
+    try {
+      await api.post(`/tasks/${task.id}/time`, { hours, note: timeNote });
+      setTimeNote('');
+      load();
+      toast('Time logged');
+    } catch (e: any) { toast(e.message, 'error'); }
+  };
+
+  const deleteTask = async () => {
+    try {
+      await api.delete(`/tasks/${task.id}`);
+      toast('Task deleted');
+      navigate('/tasks');
+    } catch (e: any) { toast(e.message, 'error'); }
+  };
+
+  const requestApproval = async () => {
+    if (!approverId) return toast('Select an approver', 'error');
+    try {
+      await api.post(`/tasks/${task.id}/approvals`, { approver_id: Number(approverId), comment: approvalComment });
+      setApproverOpen(false);
+      toast('Approval requested');
+      load();
+    } catch (e: any) { toast(e.message, 'error'); }
+  };
+
+  const exportTask = async () => {
+    try { await downloadExport(`/reports/export?type=tasks&status=${task.status}`, `task-${task.id}.csv`); } catch (e: any) { toast(e.message, 'error'); }
   };
 
   const uploadFiles = async (files: FileList | null) => {
@@ -192,9 +247,13 @@ export default function TaskDetail() {
                       <span className="text-xs font-bold">{a.progress}%</span>
                     </div>
                     <div className="flex items-center gap-2 mt-1.5">
-                      <input type="range" min={0} max={100} step={5} value={a.progress}
+                      <input type="range" min={0} max={100} step={5}
+                        value={progressDraft[a.user_id] ?? a.progress}
                         disabled={!isAdmin && a.user_id !== user?.id}
-                        onChange={(e) => updateProgress(a.user_id, Number(e.target.value))}
+                        onChange={(e) => setProgressDraft((d) => ({ ...d, [a.user_id]: Number(e.target.value) }))}
+                        onMouseUp={() => updateProgress(a.user_id, progressDraft[a.user_id] ?? a.progress)}
+                        onTouchEnd={() => updateProgress(a.user_id, progressDraft[a.user_id] ?? a.progress)}
+                        onBlur={() => { if (progressDraft[a.user_id] !== undefined) updateProgress(a.user_id, progressDraft[a.user_id]); }}
                         className="flex-1 accent-indigo-500" />
                     </div>
                   </div>
@@ -273,7 +332,7 @@ export default function TaskDetail() {
                     <label key={c.id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-card2 cursor-pointer">
                       <input type="checkbox" checked={!!c.done} onChange={() => toggleCheck(c.id, !c.done)} className="w-4 h-4 accent-indigo-500" />
                       <span className={cx('text-sm flex-1', c.done ? 'line-through text-ink3' : '')}>{c.title}</span>
-                      <button onClick={async () => { await api.delete(`/tasks/${task.id}/checklist/${c.id}`); load(); }} className="text-ink3 hover:text-bad"><X size={13} /></button>
+                      <button onClick={() => deleteCheck(c.id)} className="text-ink3 hover:text-bad"><X size={13} /></button>
                     </label>
                   ))}
                   {!(task.checklist_items || []).length && <p className="text-sm text-ink3 text-center py-4">No checklist items</p>}
@@ -299,7 +358,7 @@ export default function TaskDetail() {
                           <div className="text-sm font-medium truncate hover:text-brand">{a.filename}</div>
                           <div className="text-[11px] text-ink3">{(a.size / 1024).toFixed(1)} KB · {fmtDateTime(a.uploaded_at)}</div>
                         </a>
-                        <button onClick={async () => { await api.delete(`/uploads/${a.id}`); load(); }} className="text-ink3 hover:text-bad"><X size={14} /></button>
+                        <button onClick={() => deleteAttachment(a.id)} className="text-ink3 hover:text-bad"><X size={14} /></button>
                       </div>
                     ))}
                   </div>
@@ -336,8 +395,8 @@ export default function TaskDetail() {
                       <Badge color={a.status === 'approved' ? '#22c55e' : a.status === 'rejected' ? '#ef4444' : '#eab308'}>{a.status}</Badge>
                       {a.status === 'pending' && isAdmin && (
                         <div className="flex gap-1.5">
-                          <button className="btn btn-primary btn-xs" onClick={async () => { await api.post(`/tasks/${task.id}/approvals/${a.id}`, { status: 'approved' }); load(); }}>Approve</button>
-                          <button className="btn btn-danger btn-xs" onClick={async () => { await api.post(`/tasks/${task.id}/approvals/${a.id}`, { status: 'rejected' }); load(); }}>Reject</button>
+                          <button className="btn btn-primary btn-xs" onClick={() => decideApproval(a.id, 'approved')}>Approve</button>
+                          <button className="btn btn-danger btn-xs" onClick={() => decideApproval(a.id, 'rejected')}>Reject</button>
                         </div>
                       )}
                     </div>
@@ -362,7 +421,7 @@ export default function TaskDetail() {
               <div className="flex items-center gap-1.5 pt-2">
                 <input type="number" min={0.5} step={0.5} className="input !w-20 !py-1.5" value={hours} onChange={(e) => setHours(Number(e.target.value))} />
                 <input className="input flex-1 !py-1.5" placeholder="Note" value={timeNote} onChange={(e) => setTimeNote(e.target.value)} />
-                <button className="btn btn-ghost btn-sm" onClick={async () => { await api.post(`/tasks/${task.id}/time`, { hours, note: timeNote }); setTimeNote(''); load(); toast('Time logged'); }}><Plus size={14} /></button>
+                <button className="btn btn-ghost btn-sm" onClick={logTime}><Plus size={14} /></button>
               </div>
             </div>
           </div>
@@ -378,7 +437,7 @@ export default function TaskDetail() {
                   <button className="btn btn-primary btn-sm" onClick={() => updateProgress(user!.id, 100)}>100%</button>
                 </>
               )}
-              <button className="btn btn-ghost btn-sm col-span-2" onClick={() => downloadExport(`/reports/export?type=tasks&status=${task.status}`, `task-${task.id}.csv`)}><Download size={14} /> Export</button>
+              <button className="btn btn-ghost btn-sm col-span-2" onClick={exportTask}><Download size={14} /> Export</button>
             </div>
           </div>
 
@@ -399,12 +458,12 @@ export default function TaskDetail() {
       <TaskForm open={editOpen} onClose={() => setEditOpen(false)} task={task} onSaved={() => { setEditOpen(false); load(); }} />
 
       <ConfirmModal open={delOpen} onClose={() => setDelOpen(false)}
-        onConfirm={async () => { await api.delete(`/tasks/${task.id}`); toast('Task deleted'); navigate('/tasks'); }}
+        onConfirm={deleteTask}
         title="Delete task?" message="This action cannot be undone." confirmLabel="Delete" danger />
 
       <Modal open={approverOpen} onClose={() => setApproverOpen(false)} title="Request Approval"
         footer={<><button className="btn btn-ghost" onClick={() => setApproverOpen(false)}>Cancel</button>
-          <button className="btn btn-primary" onClick={async () => { await api.post(`/tasks/${task.id}/approvals`, { approver_id: Number(approverId), comment: approvalComment }); setApproverOpen(false); toast('Approval requested'); load(); }}>Request</button></>}>
+          <button className="btn btn-primary" onClick={requestApproval} disabled={!approverId}>Request</button></>}>
         <div className="space-y-3">
           <div>
             <label className="label">Approver</label>

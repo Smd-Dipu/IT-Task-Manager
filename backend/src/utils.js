@@ -49,7 +49,18 @@ export function dateRangeFromKey(key, custom = null) {
     case '180d': start = new Date(now); start.setDate(start.getDate() - 180); break;
     case 'month': start = new Date(now.getFullYear(), now.getMonth(), 1); break;
     case 'year': start = new Date(now.getFullYear(), 0, 1); break;
-    case 'custom': start = new Date(custom?.from); if (custom?.to) end.setDate(new Date(custom.to).getDate() + 1); break;
+    case 'custom':
+      {
+        const from = new Date(custom?.from);
+        const to = custom?.to ? new Date(custom.to) : null;
+        if (isNaN(from.getTime()) || (to && isNaN(to.getTime()))) {
+          start = new Date(now); start.setDate(start.getDate() - 30);
+        } else {
+          start = from;
+          if (to) end = new Date(to);
+        }
+        break;
+      }
     default: start = new Date(now); start.setDate(start.getDate() - 30); break;
   }
   start.setHours(0, 0, 0, 0);

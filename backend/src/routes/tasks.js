@@ -13,6 +13,20 @@ function canViewTask(user, task, assignees) {
   return (assignees || []).some((a) => a.user_id === user.id);
 }
 
+function loadTask(req, res, next) {
+  const t = db.prepare('SELECT * FROM tasks WHERE id = ?').get(req.params.id);
+  if (!t) return res.status(404).json({ error: 'Task not found' });
+  const assignees = fetchAssignees(t.id);
+  if (!canViewTask(req.user, t, assignees)) return res.status(403).json({ error: 'No access to this task' });
+  req.task = t;
+  req.taskAssignees = assignees;
+  next();
+}
+
+function safeParse(s, fallback) {
+  try { return JSON.parse(s || '[]'); } catch { return fallback; }
+}
+
 function fetchAssignees(taskId) {
   return db.prepare(`
     SELECT ta.*, u.name AS user_name, u.avatar, u.team_id
@@ -27,8 +41,8 @@ function taskJson(t, withAssignees = true) {
   const attCount = db.prepare('SELECT COUNT(*) AS c FROM task_attachments WHERE task_id = ?').get(t.id).c;
   return {
     ...t,
-    flags: JSON.parse(t.flags || '[]'),
-    tags: JSON.parse(t.tags || '[]'),
+    flags: safeParse(t.flags, []),
+    tags: safeParse(t.tags, []),
     assignees,
     comments_count: commentsCount,
     checklist: { total: checkCount.c, done: checkCount.d || 0 },
@@ -156,7 +170,7 @@ router.get('/', (req, res) => {
       LIMIT ${limit}
     `).all(...params);
   } catch (e) {
-    return res.status(400).json({ error: 'Invalid filter combination', detail: e.message });
+    return res.status(400).json({ error: 'Invalid filter combination' });
   }
 
   const flags = Array.isArray(q.flag) ? q.flag : q.flag ? [q.flag] : [];
@@ -218,7 +232,7 @@ router.get('/:id', (req, res) => {
   const comments = db.prepare(`
     SELECT tc.*, u.name AS user_name, u.avatar FROM task_comments tc
     JOIN users u ON u.id = tc.user_id WHERE tc.task_id = ? ORDER BY tc.created_at DESC
-  `).all(t.id).map((c) => ({ ...c, mentions: JSON.parse(c.mentions || '[]') }));
+  `).all(t.id).map((c) => ({ ...c, mentions: safeParse(c.mentions, []) }));
   const checklistItems = db.prepare('SELECT * FROM task_checklist WHERE task_id = ? ORDER BY id').all(t.id);
   const attachments = db.prepare('SELECT * FROM task_attachments WHERE task_id = ? ORDER BY uploaded_at DESC').all(t.id);
   const history = db.prepare(`
@@ -249,7 +263,7 @@ router.post('/', (req, res) => {
 
   const flags = JSON.stringify(Array.isArray(b.flags) ? b.flags : []);
   const tags = JSON.stringify(Array.isArray(b.tags) ? b.tags : []);
-  const assigneeIds = Array.isArray(b.assignees) ? [...new Set(b.assignees.map(Number))] : [];
+  const assigneeIds = Array.isArray(b.assignees) ? [...new Set(b.assignees.map(Number).filter((n) => Number.isFinite(n)))] : [];
   const checklist = Array.isArray(b.checklist) ? b.checklist : [];
 
   const r = db.prepare(`
@@ -283,10 +297,9 @@ router.post('/', (req, res) => {
   res.json(taskJson(db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId)));
 });
 
-router.put('/:id', (req, res) => {
+router.put('/:id', loadTask, (req, res) => {
   const id = Number(req.params.id);
-  const t = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
-  if (!t) return res.status(404).json({ error: 'Task not found' });
+  const t = req.task;
   const b = req.body || {};
   const oldStatus = t.status;
   const oldDue = t.due_date;
@@ -299,7 +312,11 @@ router.put('/:id', (req, res) => {
   for (const f of updatable) {
     if (b[f] !== undefined) {
       sets.push(`${f} = ?`);
-      params.push(typeof b[f] === 'object' && b[f] !== null ? JSON.stringify(b[f]) : b[f]);
+      params.push(
+        f === 'flags' || f === 'tags'
+          ? JSON.stringify(Array.isArray(b[f]) ? b[f] : [])
+          : (typeof b[f] === 'object' && b[f] !== null ? JSON.stringify(b[f]) : b[f])
+      );
       if (f === 'status' && b[f] !== oldStatus) {
         logHistory(id, req.user.id, 'status.change', 'status', oldStatus, b[f]);
         if (b[f] === 'done') {
@@ -313,7 +330,7 @@ router.put('/:id', (req, res) => {
   }
   if (b.assignees !== undefined) {
     const current = db.prepare('SELECT user_id FROM task_assignees WHERE task_id = ?').all(id).map((x) => x.user_id);
-    const next = [...new Set((Array.isArray(b.assignees) ? b.assignees : []).map(Number))];
+    const next = [...new Set((Array.isArray(b.assignees) ? b.assignees : []).map(Number).filter((n) => Number.isFinite(n)))];
     const toAdd = next.filter((x) => !current.includes(x));
     const toRemove = current.filter((x) => !next.includes(x));
     const del = db.prepare('DELETE FROM task_assignees WHERE task_id = ? AND user_id = ?');
@@ -345,7 +362,7 @@ router.delete('/:id', requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
-router.post('/:id/assignees', (req, res) => {
+router.post('/:id/assignees', loadTask, (req, res) => {
   const id = Number(req.params.id);
   const { user_id } = req.body || {};
   if (!user_id) return res.status(400).json({ error: 'user_id required' });
@@ -356,12 +373,12 @@ router.post('/:id/assignees', (req, res) => {
   res.json({ ok: true });
 });
 
-router.delete('/:id/assignees/:userId', (req, res) => {
+router.delete('/:id/assignees/:userId', loadTask, (req, res) => {
   db.prepare('DELETE FROM task_assignees WHERE task_id = ? AND user_id = ?').run(req.params.id, req.params.userId);
   res.json({ ok: true });
 });
 
-router.put('/:id/assignees/:userId/progress', (req, res) => {
+router.put('/:id/assignees/:userId/progress', loadTask, (req, res) => {
   const id = Number(req.params.id);
   const userId = Number(req.params.userId);
   const { progress } = req.body || {};
@@ -381,11 +398,11 @@ router.put('/:id/assignees/:userId/progress', (req, res) => {
   res.json({ ok: true, progress: p, status: newStatus });
 });
 
-router.post('/:id/status', (req, res) => {
+router.post('/:id/status', loadTask, (req, res) => {
   const id = Number(req.params.id);
   const { status } = req.body || {};
-  const t = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
-  if (!t) return res.status(404).json({ error: 'Task not found' });
+  const t = req.task;
+  if (!status) return res.status(400).json({ error: 'status required' });
   db.prepare('UPDATE tasks SET status = ?, updated_at = datetime(\'now\') WHERE id = ?').run(status, id);
   db.prepare('UPDATE task_assignees SET status = ? WHERE task_id = ? AND status != \'done\'').run(status, id);
   if (status === 'done') {
@@ -399,7 +416,7 @@ router.post('/:id/status', (req, res) => {
   res.json({ ok: true });
 });
 
-router.post('/:id/comments', (req, res) => {
+router.post('/:id/comments', loadTask, (req, res) => {
   const id = Number(req.params.id);
   const { content, mentions } = req.body || {};
   if (!content) return res.status(400).json({ error: 'Comment content required' });
@@ -419,7 +436,7 @@ router.post('/:id/comments', (req, res) => {
   res.json({ ...row, mentions: mentions || [] });
 });
 
-router.post('/:id/checklist', (req, res) => {
+router.post('/:id/checklist', loadTask, (req, res) => {
   const { title } = req.body || {};
   if (!title) return res.status(400).json({ error: 'title required' });
   const r = db.prepare('INSERT INTO task_checklist (task_id, title, created_by) VALUES (?, ?, ?)')
@@ -427,7 +444,7 @@ router.post('/:id/checklist', (req, res) => {
   res.json(db.prepare('SELECT * FROM task_checklist WHERE id = ?').get(Number(r.lastInsertRowid)));
 });
 
-router.put('/:id/checklist/:cid', (req, res) => {
+router.put('/:id/checklist/:cid', loadTask, (req, res) => {
   const c = db.prepare('SELECT * FROM task_checklist WHERE id = ?').get(req.params.cid);
   if (!c) return res.status(404).json({ error: 'Checklist item not found' });
   const { done, title } = req.body || {};
@@ -440,24 +457,24 @@ router.put('/:id/checklist/:cid', (req, res) => {
   res.json(db.prepare('SELECT * FROM task_checklist WHERE id = ?').get(c.id));
 });
 
-router.delete('/:id/checklist/:cid', (req, res) => {
+router.delete('/:id/checklist/:cid', loadTask, (req, res) => {
   db.prepare('DELETE FROM task_checklist WHERE id = ?').run(req.params.cid);
   res.json({ ok: true });
 });
 
-router.post('/:id/dependencies', (req, res) => {
+router.post('/:id/dependencies', loadTask, (req, res) => {
   const { depends_on } = req.body || {};
   if (!depends_on) return res.status(400).json({ error: 'depends_on required' });
   db.prepare('INSERT OR IGNORE INTO task_dependencies (task_id, depends_on) VALUES (?, ?)').run(req.params.id, depends_on);
   res.json({ ok: true });
 });
 
-router.delete('/:id/dependencies/:dep', (req, res) => {
+router.delete('/:id/dependencies/:dep', loadTask, (req, res) => {
   db.prepare('DELETE FROM task_dependencies WHERE task_id = ? AND depends_on = ?').run(req.params.id, req.params.dep);
   res.json({ ok: true });
 });
 
-router.post('/:id/approvals', (req, res) => {
+router.post('/:id/approvals', loadTask, (req, res) => {
   const { approver_id, comment } = req.body || {};
   if (!approver_id) return res.status(400).json({ error: 'approver_id required' });
   const r = db.prepare('INSERT INTO approvals (task_id, requester_id, approver_id, comment) VALUES (?, ?, ?, ?)')
@@ -467,9 +484,10 @@ router.post('/:id/approvals', (req, res) => {
   res.json({ ok: true, id: Number(r.lastInsertRowid) });
 });
 
-router.post('/:id/approvals/:aid', (req, res) => {
+router.post('/:id/approvals/:aid', loadTask, (req, res) => {
   const a = db.prepare('SELECT * FROM approvals WHERE id = ?').get(req.params.aid);
   if (!a) return res.status(404).json({ error: 'Approval not found' });
+  if (a.task_id !== Number(req.params.id)) return res.status(400).json({ error: 'Approval does not belong to this task' });
   const { status, comment } = req.body || {};
   db.prepare('UPDATE approvals SET status = ?, comment = COALESCE(?, comment), updated_at = datetime(\'now\') WHERE id = ?')
     .run(status || 'approved', comment ?? null, a.id);
@@ -480,9 +498,9 @@ router.post('/:id/approvals/:aid', (req, res) => {
   res.json({ ok: true });
 });
 
-router.post('/:id/time', (req, res) => {
+router.post('/:id/time', loadTask, (req, res) => {
   const { hours, note, date } = req.body || {};
-  if (!hours) return res.status(400).json({ error: 'hours required' });
+  if (hours === undefined || hours === null || isNaN(Number(hours))) return res.status(400).json({ error: 'hours required' });
   const r = db.prepare('INSERT INTO time_entries (task_id, user_id, hours, note, date) VALUES (?, ?, ?, ?, ?)')
     .run(req.params.id, req.user.id, Number(hours), note || '', date || new Date().toISOString().slice(0, 10));
   res.json(db.prepare('SELECT * FROM time_entries WHERE id = ?').get(Number(r.lastInsertRowid)));

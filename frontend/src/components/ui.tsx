@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Check, AlertTriangle, Info, X as XIcon } from 'lucide-react';
+import { X, Check, AlertTriangle, Info } from 'lucide-react';
 import { cx, avatarColor, initials } from '../lib/utils';
 
 export function Avatar({ name, src, size = 36, className }: { name?: string; src?: string; size?: number; className?: string }) {
@@ -40,13 +40,15 @@ export function StatusBadge({ status, settings, className }: { status: string; s
 export function Modal({ open, onClose, title, children, footer, width = 560 }: {
   open: boolean; onClose: () => void; title?: React.ReactNode; children: React.ReactNode; footer?: React.ReactNode; width?: number | string;
 }) {
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onCloseRef.current();
     window.addEventListener('keydown', onKey);
     document.body.style.overflow = 'hidden';
     return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = ''; };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
   return createPortal(
@@ -132,11 +134,11 @@ let toastId = 0;
 const ToastCtx = React.createContext<(t: string, type?: ToastType) => void>(() => {});
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const push = (message: string, type: ToastType = 'success') => {
+  const push = useCallback((message: string, type: ToastType = 'success') => {
     const id = ++toastId;
     setToasts((t) => [...t, { id, type, message }]);
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3500);
-  };
+  }, []);
   const icons: Record<ToastType, React.ReactNode> = {
     success: <Check size={16} className="text-ok" />,
     error: <AlertTriangle size={16} className="text-bad" />,
@@ -160,14 +162,21 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 export function useToast() { return React.useContext(ToastCtx); }
 
 export function ConfirmModal({ open, onClose, onConfirm, title = 'Are you sure?', message, confirmLabel = 'Confirm', danger }: {
-  open: boolean; onClose: () => void; onConfirm: () => void; title?: string; message?: string; confirmLabel?: string; danger?: boolean;
+  open: boolean; onClose: () => void; onConfirm: () => void | Promise<void>; title?: string; message?: string; confirmLabel?: string; danger?: boolean;
 }) {
+  const [busy, setBusy] = useState(false);
   return (
     <Modal open={open} onClose={onClose} title={title} width={420}
       footer={
         <>
-          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          <button className={cx('btn', danger ? 'btn-danger' : 'btn-primary')} onClick={() => { onConfirm(); onClose(); }}>{confirmLabel}</button>
+          <button className="btn btn-ghost" onClick={onClose} disabled={busy}>Cancel</button>
+          <button className={cx('btn', danger ? 'btn-danger' : 'btn-primary')} disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try { await onConfirm(); onClose(); } catch { /* surfaced by the caller */ } finally { setBusy(false); }
+            }}>
+            {confirmLabel}
+          </button>
         </>
       }
     >

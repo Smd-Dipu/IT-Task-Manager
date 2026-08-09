@@ -29,8 +29,9 @@ export default function Users() {
         api.get<User[]>('/users'), api.get<{ id: number; name: string }[]>('/teams'), api.get<{ id: number; name: string }[]>('/departments'),
       ]);
       setUsers(u); setTeams(t); setDepts(d);
-    } finally { setLoading(false); }
-  }, []);
+    } catch (e: any) { toast(e.message, 'error'); }
+    finally { setLoading(false); }
+  }, [toast]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -65,9 +66,11 @@ export default function Users() {
 
   const resetPassword = async () => {
     if (!resetTarget) return;
-    const r = await api.post<{ temporaryPassword: string }>(`/users/${resetTarget.id}/reset-password`, {});
-    toast(`Password reset to: ${r.temporaryPassword}`, 'info');
-    load();
+    try {
+      const r = await api.post<{ temporaryPassword: string }>(`/users/${resetTarget.id}/reset-password`, {});
+      toast(`Password reset to: ${r.temporaryPassword}`, 'info');
+      load();
+    } catch (e: any) { toast(e.message, 'error'); throw e; }
   };
 
   const toggleActive = async (u: User) => {
@@ -83,7 +86,7 @@ export default function Users() {
       toast('User deleted');
       setDeleteTarget(null);
       load();
-    } catch (e: any) { toast(e.message, 'error'); }
+    } catch (e: any) { toast(e.message, 'error'); throw e; }
   };
 
   const filtered = users.filter((u) => (u.name + u.email + (u.role || '')).toLowerCase().includes(q.toLowerCase()));

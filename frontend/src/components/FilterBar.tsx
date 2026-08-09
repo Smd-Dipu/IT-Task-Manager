@@ -63,10 +63,20 @@ export function FilterBar({ value, onChange, data, onRefresh, loading }: {
   const [saveName, setSaveName] = useState('');
   const [presetOpen, setPresetOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [searchDraft, setSearchDraft] = useState(value.search || '');
 
   useEffect(() => {
     api.get<{ id: number; name: string; payload: FilterState }[]>('/settings/saved-filters').then(setSaved).catch(() => {});
   }, []);
+
+  useEffect(() => { setSearchDraft(value.search || ''); }, [value.search]);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (searchDraft !== (value.search || '')) set({ search: searchDraft });
+    }, 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchDraft]);
 
   const set = (patch: Partial<FilterState>) => onChange({ ...value, ...patch });
   const activeCount = useMemo(() => {
@@ -113,9 +123,9 @@ export function FilterBar({ value, onChange, data, onRefresh, loading }: {
     setPresetOpen(false);
   };
 
-  const doExport = (fmt: string) => {
-    const params = filterToParams(value);
-    downloadExport(`/reports/export?type=tasks&format=${fmt}${buildQuery(params)}`, `tasks.${fmt}`);
+  const doExport = async (fmt: string) => {
+    const q = buildQuery(filterToParams(value)).replace(/^\?/, '');
+    try { await downloadExport(`/reports/export?type=tasks&format=${fmt}${q ? `&${q}` : ''}`, `tasks.${fmt}`); } catch (e: any) { toast(e.message, 'error'); }
   };
 
   return (
@@ -126,8 +136,8 @@ export function FilterBar({ value, onChange, data, onRefresh, loading }: {
           <input
             className="input !pl-9 !py-2"
             placeholder="Search title, description..."
-            value={value.search || ''}
-            onChange={(e) => set({ search: e.target.value })}
+            value={searchDraft}
+            onChange={(e) => setSearchDraft(e.target.value)}
           />
         </div>
 

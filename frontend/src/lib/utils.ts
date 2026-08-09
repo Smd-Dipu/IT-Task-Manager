@@ -43,10 +43,14 @@ export function avatarColor(name?: string): string {
   return AVATAR_COLORS[h % AVATAR_COLORS.length];
 }
 
+export function localDateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export function isOverdue(task: { due_date?: string | null; status?: string }): boolean {
   if (!task.due_date || !task.status) return false;
   if (task.status === 'done' || task.status === 'cancelled') return false;
-  return task.due_date < new Date().toISOString().slice(0, 10);
+  return task.due_date < localDateKey(new Date());
 }
 
 export function isDueSoon(task: { due_date?: string | null; status?: string }, days = 1): boolean {
@@ -54,7 +58,7 @@ export function isDueSoon(task: { due_date?: string | null; status?: string }, d
   if (task.status === 'done' || task.status === 'cancelled') return false;
   const d = new Date();
   d.setDate(d.getDate() + days);
-  return task.due_date <= d.toISOString().slice(0, 10) && task.due_date >= new Date().toISOString().slice(0, 10);
+  return task.due_date <= localDateKey(d) && task.due_date >= localDateKey(new Date());
 }
 
 export function statusById(settings: Settings | null, id?: string): StatusMeta {
