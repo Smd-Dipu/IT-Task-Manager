@@ -19,7 +19,7 @@ function taskRowsForReport(user, q) {
   if (q.priority) { const l = Array.isArray(q.priority) ? q.priority : [q.priority]; if (l.length && !l.includes('all')) where.push(`t.priority IN (${l.map(() => '?').join(',')})`), params.push(...l); }
   if (q.team_id) { const l = Array.isArray(q.team_id) ? q.team_id : [q.team_id]; if (l.length && !l.includes('all')) where.push(`t.team_id IN (${l.map(() => '?').join(',')})`), params.push(...l); }
   if (q.department_id) { const l = Array.isArray(q.department_id) ? q.department_id : [q.department_id]; if (l.length && !l.includes('all')) where.push(`t.department_id IN (${l.map(() => '?').join(',')})`), params.push(...l); }
-  if (q.dateKey) { const r = dateRangeFromKey(q.dateKey); where.push('t.created_at >= ? AND t.created_at <= ?'); params.push(r.start, r.end); }
+  if (q.dateKey) { const r = dateRangeFromKey(q.dateKey, q.dateKey === 'custom' ? { from: q.date_from, to: q.date_to } : null); where.push('t.created_at >= ? AND t.created_at <= ?'); params.push(r.start, r.end); }
   const rows = db.prepare(`
     SELECT t.id, t.title, t.status, t.priority, t.difficulty, t.task_type, t.budget, t.estimated_hours,
       t.due_date, t.progress, t.created_at, t.updated_at, t.completed_at,
@@ -261,7 +261,7 @@ router.get('/export', (req, res) => {
     }));
   } else if (type === 'kpi') {
     const cfg = getSettings();
-    const r = dateRangeFromKey(req.query.dateKey || 'month');
+    const r = dateRangeFromKey(req.query.dateKey || 'month', req.query.dateKey === 'custom' ? { from: req.query.from, to: req.query.to } : null);
     const isAdminUser = isAdmin(req.user);
     const where = isAdminUser ? '1=1' : 'u.id = ?';
     const params = isAdminUser ? [] : [req.user.id];
@@ -277,7 +277,7 @@ router.get('/export', (req, res) => {
         Points: k.points, Bonus: k.bonus, Penalty: k.penalty, Rating: k.rating, 'Final Score': k.score,
       }));
   } else if (type === 'activity') {
-    const r = dateRangeFromKey(req.query.dateKey || '30d');
+    const r = dateRangeFromKey(req.query.dateKey || '30d', req.query.dateKey === 'custom' ? { from: req.query.from, to: req.query.to } : null);
     const isAdminUser = isAdmin(req.user);
     let sql = `SELECT a.*, u.name AS user_name FROM audit_logs a LEFT JOIN users u ON u.id = a.user_id
       WHERE a.created_at >= ? AND a.created_at <= ?`;

@@ -97,7 +97,7 @@ export function FilterBar({ value, onChange, data, onRefresh, loading }: {
   const diffOpts = (settings?.difficulties || []).map((d) => ({ id: d.id, name: d.name }));
   const typeOpts = ['task', 'bug', 'feature', 'research', 'design', 'infra'].map((t) => ({ id: t, name: t[0].toUpperCase() + t.slice(1) }));
   const tagOpts = [...new Set(['frontend', 'backend', 'api', 'design', 'research', 'infra', 'marketing', 'data', 'mobile', 'automation'])].map((t) => ({ id: t, name: t }));
-  const flagOpts = ['Urgent', 'Client', 'Internal', 'Finance', 'Development', 'Infrastructure', 'Security', 'Bug', 'Enhancement', 'Testing', 'Software', 'Network'].map((f) => ({ id: f, name: f }));
+  const flagOpts = ['Urgent', 'Client', 'Internal', 'Finance', 'Development', 'Infrastructure', 'Security', 'Bug', 'Enhancement', 'Testing', 'Software', 'Network', 'Design'].map((f) => ({ id: f, name: f }));
 
   const quickToggles: { key: keyof FilterState; label: string }[] = [
     { key: 'overdueOnly', label: 'Overdue' },

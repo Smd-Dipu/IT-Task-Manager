@@ -36,9 +36,11 @@ export function startOfYear() {
   return d;
 }
 
+function fmtDT(d) { return d.toISOString().replace('T', ' ').slice(0, 19); }
+
 export function dateRangeFromKey(key, custom = null) {
   const now = new Date();
-  const end = new Date(now);
+  let end = new Date(now);
   let start;
   switch (key) {
     case 'today': start = new Date(now); break;
@@ -65,7 +67,7 @@ export function dateRangeFromKey(key, custom = null) {
   }
   start.setHours(0, 0, 0, 0);
   end.setHours(23, 59, 59, 999);
-  return { start: start.toISOString(), end: end.toISOString() };
+  return { start: fmtDT(start), end: fmtDT(end) };
 }
 
 export function prettyDate(iso) {
