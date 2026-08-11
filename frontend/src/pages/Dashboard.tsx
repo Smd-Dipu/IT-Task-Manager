@@ -98,7 +98,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <FilterBar value={filters} onChange={setFilters} onRefresh={() => load(filters)} loading={loading} />
+      <FilterBar simple value={filters} onChange={setFilters} onRefresh={() => load(filters)} loading={loading} />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {cards.map((c) => <StatCard key={c.label} {...c} />)}
