@@ -8,7 +8,7 @@ import {
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useSettings } from '../lib/settings';
-import type { DashboardData } from '../lib/types';
+import type { DashboardData, User, Team, Department } from '../lib/types';
 import { StatCard, Skeleton, Badge, Avatar, useToast } from '../components/ui';
 import { AreaChartCard, BarChartCard, DonutChartCard, ChartCard } from '../components/charts';
 import {
@@ -16,7 +16,7 @@ import {
 } from 'recharts';
 import { statusById, priorityById, timeAgo, cx } from '../lib/utils';
 import { FilterBar } from '../components/FilterBar';
-import { defaultFilters } from '../lib/filters';
+import { defaultFilters, filterToParams } from '../lib/filters';
 import type { FilterState } from '../lib/filters';
 
 export default function Dashboard() {
@@ -26,19 +26,15 @@ export default function Dashboard() {
   const toast = useToast();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [users, setUsers] = useState<User[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [depts, setDepts] = useState<Department[]>([]);
   const [filters, setFilters] = useState<FilterState>({ ...defaultFilters, dateKey: '30d' });
 
   const load = useCallback(async (f: FilterState) => {
     setLoading(true);
     try {
-      const params: Record<string, string> = {};
-      if (f.dateKey) {
-        params.dateKey = f.dateKey;
-        if (f.dateKey === 'custom') {
-          if (f.from) params.from = f.from;
-          if (f.to) params.to = f.to;
-        }
-      }
+      const params = filterToParams(f);
       const d = await api.get<DashboardData>('/dashboard', params);
       setData(d);
     } catch (e: any) {
@@ -48,7 +44,13 @@ export default function Dashboard() {
     }
   }, [toast]);
 
-  useEffect(() => { load(filters); }, [filters.dateKey, filters.from, filters.to]);
+  useEffect(() => { load(filters); }, [filters]);
+
+  useEffect(() => {
+    api.get<User[]>('/users').then(setUsers).catch(() => {});
+    api.get<Team[]>('/teams').then(setTeams).catch(() => {});
+    api.get<Department[]>('/departments').then(setDepts).catch(() => {});
+  }, []);
 
   if (!user) return null;
   if (loading && !data) return <PageLoader />;
@@ -98,7 +100,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <FilterBar simple value={filters} onChange={setFilters} onRefresh={() => load(filters)} loading={loading} />
+      <FilterBar value={filters} onChange={setFilters} data={{ users, teams, departments: depts }} onRefresh={() => load(filters)} loading={loading} />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {cards.map((c) => <StatCard key={c.label} {...c} />)}

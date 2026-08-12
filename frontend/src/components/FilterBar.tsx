@@ -49,13 +49,12 @@ function MultiSelect({ label, options, value, onChange, colorOf }: {
   );
 }
 
-export function FilterBar({ value, onChange, data, onRefresh, loading, simple }: {
+export function FilterBar({ value, onChange, data, onRefresh, loading }: {
   value: FilterState;
   onChange: (f: FilterState) => void;
   data?: { users?: User[]; teams?: Team[]; departments?: Department[] };
   onRefresh?: () => void;
   loading?: boolean;
-  simple?: boolean;
 }) {
   const settings = useSettings();
   const toast = useToast();
@@ -165,11 +164,9 @@ export function FilterBar({ value, onChange, data, onRefresh, loading, simple }:
           {value.sortDir === 'asc' ? 'Asc ↑' : 'Desc ↓'}
         </button>
 
-        {!simple && (
-          <button className={cx('btn btn-ghost btn-sm', activeCount > 0 && '!text-brand !border-brand/40')} onClick={() => setOpen((o) => !o)}>
-            <SlidersHorizontal size={14} /> Filters {activeCount > 0 && `(${activeCount})`}
-          </button>
-        )}
+        <button className={cx('btn btn-ghost btn-sm', activeCount > 0 && '!text-brand !border-brand/40')} onClick={() => setOpen((o) => !o)}>
+          <SlidersHorizontal size={14} /> Filters {activeCount > 0 && `(${activeCount})`}
+        </button>
 
         <div className="relative">
           <button className="btn btn-ghost btn-sm" onClick={() => setPresetOpen((o) => !o)}>
