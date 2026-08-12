@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, ListTodo, Users, Building2, UserCog, Award, BarChart3,
-  ScrollText, Settings as SettingsIcon, LogOut, Bell, Search, Plus, Sun, Moon,
+  ScrollText, Settings as SettingsIcon, LogOut, Bell, Search, Sun, Moon,
   Menu, X, ChevronRight, UserCircle, CalendarDays, ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth';
@@ -165,13 +165,6 @@ export function Layout() {
           </form>
 
           <div className="flex-1" />
-
-          <button onClick={() => navigate('/tasks/new')} className="btn btn-primary btn-sm hidden sm:inline-flex">
-            <Plus size={15} /> New Task
-          </button>
-          <button onClick={() => navigate('/tasks/new')} className="btn btn-primary btn-sm sm:hidden p-2">
-            <Plus size={15} />
-          </button>
 
           <div className="relative">
             <button
