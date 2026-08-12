@@ -58,6 +58,7 @@ then invalidates all existing sessions. Login is rate-limited (10 attempts per
 - **Views**: List, Grid, Kanban (drag & drop), Calendar, Timeline
 - Comments with @mentions, file attachments, checklist/subtasks, time tracking, approval workflow, task history
 - **Advanced filters**: date presets + custom range, status/priority/difficulty/type/tags/flags, assignee/creator/reviewer/team/department, quick toggles, saved filter presets, sorting, export
+- **Reports**: users can only download their reports in CSV format; admin exports CSV/XLSX/PDF
 
 ### KPI Management (Admin)
 - Difficulty-weighted scoring (Easy 1 / Medium 2 / Hard 3 / Critical 5 pts)

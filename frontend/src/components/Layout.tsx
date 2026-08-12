@@ -75,7 +75,6 @@ export function Layout() {
     ];
     const groups: { title?: string; items: typeof main }[] = [{ items: main }];
     if (isAdmin) groups.push({ title: 'Administration', items: admin });
-    else groups.push({ title: 'Insights', items: [{ to: '/reports', label: 'My Reports', icon: BarChart3 }] });
     groups.push({ title: 'Account', items: [{ to: '/profile', label: 'Profile', icon: UserCircle }] });
     return groups;
   }, [isAdmin]);

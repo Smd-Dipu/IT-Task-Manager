@@ -5,6 +5,7 @@ import { DATE_PRESETS, cx, buildQuery } from '../lib/utils';
 import { api, downloadExport } from '../lib/api';
 import type { Team, Department, User } from '../lib/types';
 import { useSettings } from '../lib/settings';
+import { useAuth } from '../lib/auth';
 import { useToast } from './ui';
 
 interface RefOpt { id: string; name: string; color?: string }
@@ -58,6 +59,7 @@ export function FilterBar({ value, onChange, data, onRefresh, loading }: {
 }) {
   const settings = useSettings();
   const toast = useToast();
+  const { isAdmin } = useAuth();
   const [open, setOpen] = useState(false);
   const [saved, setSaved] = useState<{ id: number; name: string; payload: FilterState }[]>([]);
   const [saveName, setSaveName] = useState('');
@@ -205,7 +207,7 @@ export function FilterBar({ value, onChange, data, onRefresh, loading }: {
           </button>
           {exportOpen && (
             <div className="card anim-pop absolute right-0 mt-1.5 z-30 p-1.5" style={{ background: 'rgb(var(--card))' }}>
-              {(['csv', 'xlsx', 'pdf'] as const).map((fmt) => (
+              {(isAdmin ? (['csv', 'xlsx', 'pdf'] as const) : (['csv'] as const)).map((fmt) => (
                 <button key={fmt} className="menu-item" onClick={() => { doExport(fmt); setExportOpen(false); }}>
                   <Download size={14} /> {fmt.toUpperCase()}
                 </button>

@@ -250,6 +250,9 @@ function drawHBarChart(doc, title, items, x, y, w, h) {
 
 router.get('/export', (req, res) => {
   const { type = 'tasks', format = 'csv' } = req.query;
+  if (!isAdmin(req.user) && format !== 'csv') {
+    return res.status(403).json({ error: 'Users can only download reports in CSV format' });
+  }
   const tzOffset = req.query.tzOffset;
   let base = [];
   if (type === 'tasks') {

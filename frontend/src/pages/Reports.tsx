@@ -43,7 +43,9 @@ export default function Reports() {
     { label: 'KPI PDF', file: 'kpi.pdf', path: exp('kpi', 'pdf') },
     { label: 'Activity Log', file: 'activity.csv', path: exp('activity', 'csv') },
     { label: 'Activity PDF', file: 'activity.pdf', path: exp('activity', 'pdf') },
-  ];
+  ].filter((e) => isAdmin || e.file.endsWith('.csv'));
+
+  const quickExports = exports;
 
   return (
     <div className="max-w-[1200px] mx-auto space-y-6">
@@ -57,11 +59,14 @@ export default function Reports() {
             {DATE_PRESETS.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
           </select>
           <div className="flex gap-1.5">
-            {[
-              { icon: FileText, label: 'CSV', p: exports[0].path, f: exports[0].file },
-              { icon: FileSpreadsheet, label: 'XLSX', p: exports[1].path, f: exports[1].file },
-              { icon: FileJson, label: 'PDF', p: exports[2].path, f: exports[2].file },
-            ].map((e) => (
+            {(isAdmin
+              ? [
+                  { icon: FileText, label: 'CSV', p: exp('tasks', 'csv'), f: 'tasks.csv' },
+                  { icon: FileSpreadsheet, label: 'XLSX', p: exp('tasks', 'xlsx'), f: 'tasks.xlsx' },
+                  { icon: FileJson, label: 'PDF', p: exp('tasks', 'pdf'), f: 'tasks.pdf' },
+                ]
+              : [{ icon: FileText, label: 'CSV', p: exp('tasks', 'csv'), f: 'tasks.csv' }]
+            ).map((e) => (
               <button key={e.label} className="btn btn-ghost btn-sm" onClick={() => doExport(e.p, e.f)} title={`Export ${e.label}`}>
                 <e.icon size={14} /> <span className="hidden sm:inline">{e.label}</span>
               </button>
