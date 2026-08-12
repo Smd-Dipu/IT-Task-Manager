@@ -263,20 +263,29 @@ router.post('/', (req, res) => {
 
   const flags = JSON.stringify(Array.isArray(b.flags) ? b.flags : []);
   const tags = JSON.stringify(Array.isArray(b.tags) ? b.tags : []);
+  const isSelfTask = b.is_self_task ? 1 : 0;
+  if (isSelfTask && isAdmin(req.user)) {
+    return res.status(403).json({ error: 'Self tasks are only available in user mode' });
+  }
   const assigneeIds = Array.isArray(b.assignees) ? [...new Set(b.assignees.map(Number).filter((n) => Number.isFinite(n)))] : [];
   const checklist = Array.isArray(b.checklist) ? b.checklist : [];
+  if (isSelfTask) {
+    assigneeIds.length = 0;
+    assigneeIds.push(req.user.id);
+  }
 
   const r = db.prepare(`
     INSERT INTO tasks (
       title, description, status, priority, difficulty, task_type, flags, tags,
       budget, estimated_hours, due_date, start_date, created_by, reviewer_id, team_id, department_id,
-      parent_task_id, progress, is_blocked, is_recurring, recurring_rule
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      parent_task_id, progress, is_blocked, is_recurring, recurring_rule, is_self_task
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     b.title, b.description || '', b.status, b.priority, b.difficulty || 'medium', b.task_type || 'task',
     flags, tags, b.budget || 0, b.estimated_hours || 0, b.due_date || null, b.start_date || null,
     req.user.id, b.reviewer_id || null, b.team_id || null, b.department_id || null,
     b.parent_task_id || null, b.progress || 0, b.is_blocked ? 1 : 0, b.is_recurring ? 1 : 0, b.recurring_rule || '',
+    isSelfTask,
   );
   const taskId = Number(r.lastInsertRowid);
 

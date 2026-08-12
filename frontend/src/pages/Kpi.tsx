@@ -130,7 +130,7 @@ export default function Kpi() {
                 <thead>
                   <tr className="text-left text-xs text-ink3 uppercase tracking-wider border-b border-line">
                     <th className="px-3 py-2.5">User</th><th className="px-3 py-2.5">Team</th><th className="px-3 py-2.5">Completed</th>
-                    <th className="px-3 py-2.5">On-Time</th><th className="px-3 py-2.5">Overdue</th><th className="px-3 py-2.5">Rate</th>
+                    <th className="px-3 py-2.5">Self</th><th className="px-3 py-2.5">On-Time</th><th className="px-3 py-2.5">Overdue</th><th className="px-3 py-2.5">Rate</th>
                     <th className="px-3 py-2.5">Avg Hours</th><th className="px-3 py-2.5">Points</th><th className="px-3 py-2.5">Bonus</th>
                     <th className="px-3 py-2.5">Penalty</th><th className="px-3 py-2.5 text-right">Score</th>
                   </tr>
@@ -141,6 +141,7 @@ export default function Kpi() {
                       <td className="px-3 py-2.5 font-semibold">{u.name}</td>
                       <td className="px-3 py-2.5 text-ink2">{u.team_name || '—'}</td>
                       <td className="px-3 py-2.5">{u.completed}</td>
+                      <td className="px-3 py-2.5 text-brand">{u.selfCompleted}</td>
                       <td className="px-3 py-2.5 text-ok">{u.onTime}</td>
                       <td className="px-3 py-2.5 text-bad">{u.overdueCount}</td>
                       <td className="px-3 py-2.5">{u.completionRate}%</td>

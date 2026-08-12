@@ -35,6 +35,7 @@ export function ListView({ tasks }: { tasks: Task[] }) {
                   <div className="font-semibold flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: st.color }} />
                     <span className="truncate">{t.title}</span>
+                    {t.is_self_task && <Badge color="#10b981">Self Task</Badge>}
                     {t.is_blocked && <Badge color="#ef4444">blocked</Badge>}
                     {t.flags?.includes('Urgent') && <Badge color="#f97316">urgent</Badge>}
                   </div>

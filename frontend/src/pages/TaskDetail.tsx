@@ -193,6 +193,7 @@ export default function TaskDetail() {
           <Badge color={diff.points >= 5 ? '#ef4444' : diff.points >= 3 ? '#f97316' : '#3b82f6'}>{diff.name} ({diff.points} pts)</Badge>
           {task.is_blocked && <Badge color="#ef4444">Blocked</Badge>}
           {task.is_recurring && <Badge color="#a855f7">Recurring</Badge>}
+          {task.is_self_task && <Badge color="#10b981">Self Task</Badge>}
           {task.approval_status === 'pending' && <Badge color="#eab308">Approval pending</Badge>}
         </div>
         <h1 className="text-2xl font-extrabold leading-snug">{task.title}</h1>

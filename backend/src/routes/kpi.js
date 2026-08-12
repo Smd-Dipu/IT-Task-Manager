@@ -19,6 +19,12 @@ export function computeUserKpi(userId, startIso, endIso, cfg) {
   `).all(userId, started, ended);
 
   const points = completed.reduce((sum, t) => {
+    if (t.is_self_task) {
+      const start = new Date(t.created_at.replace(' ', 'T'));
+      const end = new Date(t.completed_at.replace(' ', 'T'));
+      const hours = (end - start) / 3600000;
+      return sum + (hours <= 1 ? 1 : 2);
+    }
     const diffPts = getDifficultyById(t.difficulty).points;
     const prioW = getPriorityById(t.priority).weight;
     return sum + diffPts * prioW;
@@ -58,6 +64,7 @@ export function computeUserKpi(userId, startIso, endIso, cfg) {
   return {
     userId,
     completed: completed.length,
+    selfCompleted: completed.filter((t) => t.is_self_task).length,
     totalAssigned,
     totalDone,
     completionRate,

@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { LayoutGrid, List, Kanban, CalendarDays, Rows3, Plus, ListTodo } from 'lucide-react';
+import { LayoutGrid, List, Kanban, CalendarDays, Rows3, Plus, ListTodo, UserPlus } from 'lucide-react';
 import { api } from '../lib/api';
 import type { Task, User, Team, Department } from '../lib/types';
+import { useAuth } from '../lib/auth';
 import { FilterBar } from '../components/FilterBar';
 import { defaultFilters, filterToParams } from '../lib/filters';
 import type { FilterState } from '../lib/filters';
@@ -27,6 +28,7 @@ export default function Tasks() {
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const toast = useToast();
+  const { isAdmin } = useAuth();
   const [view, setView] = useState<string>(params.get('view') || 'list');
   const [filters, setFilters] = useState<FilterState>(() => {
     const search = params.get('search');
@@ -38,6 +40,7 @@ export default function Tasks() {
   const [depts, setDepts] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(params.get('new') === '1');
+  const [selfFormOpen, setSelfFormOpen] = useState(params.get('self') === '1');
 
   const load = useCallback(async (f: FilterState) => {
     setLoading(true);
@@ -76,7 +79,12 @@ export default function Tasks() {
           <h1 className="text-2xl font-extrabold flex items-center gap-2"><ListTodo size={24} className="text-brand" /> Tasks</h1>
           <p className="text-sm text-ink2 mt-0.5">{tasks.length} tasks · {openCount} open · {doneCount} completed</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setFormOpen(true)}><Plus size={16} /> New Task</button>
+        <div className="flex items-center gap-2">
+          {!isAdmin && (
+            <button className="btn btn-ghost" onClick={() => setSelfFormOpen(true)}><UserPlus size={16} /> Self Task</button>
+          )}
+          <button className="btn btn-primary" onClick={() => setFormOpen(true)}><Plus size={16} /> New Task</button>
+        </div>
       </div>
 
       <FilterBar value={filters} onChange={onFiltersChange} data={{ users, teams, departments: depts }} onRefresh={() => load(filters)} loading={loading} />
@@ -109,6 +117,10 @@ export default function Tasks() {
 
       <TaskForm open={newTask} onClose={() => { setFormOpen(false); setParams({}, { replace: true }); }}
         task={null} onSaved={(t) => { load(filters); navigate(`/tasks/${t.id}`); }} />
+      {!isAdmin && (
+        <TaskForm open={selfFormOpen} onClose={() => { setSelfFormOpen(false); setParams({}, { replace: true }); }}
+          task={null} selfTask onSaved={(t) => { load(filters); navigate(`/tasks/${t.id}`); }} />
+      )}
     </div>
   );
 }

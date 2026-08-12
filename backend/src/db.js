@@ -72,11 +72,17 @@ CREATE TABLE IF NOT EXISTS tasks (
   is_recurring INTEGER NOT NULL DEFAULT 0,
   recurring_rule TEXT DEFAULT '',
   archived INTEGER NOT NULL DEFAULT 0,
+  is_self_task INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
   completed_at TEXT
 );
-
+`);
+const taskCols = db.prepare('PRAGMA table_info(tasks)').all().map((c) => c.name);
+if (!taskCols.includes('is_self_task')) {
+  db.exec("ALTER TABLE tasks ADD COLUMN is_self_task INTEGER NOT NULL DEFAULT 0");
+}
+db.exec(`
 CREATE TABLE IF NOT EXISTS task_assignees (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,

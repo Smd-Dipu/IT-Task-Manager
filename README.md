@@ -54,6 +54,7 @@ then invalidates all existing sessions. Login is rate-limited (10 attempts per
 ### Task Management
 - Full task form: status, priority, difficulty, type, flags, tags, budget, hours, due date, team, department, reviewer, dependencies, checklist, recurrence, blocked flag
 - **Multiple assignees** with individual progress tracking
+- **Self Tasks** (user mode): create a personal task assigned to yourself, track it, and mark it Completed for KPI points
 - **Views**: List, Grid, Kanban (drag & drop), Calendar, Timeline
 - Comments with @mentions, file attachments, checklist/subtasks, time tracking, approval workflow, task history
 - **Advanced filters**: date presets + custom range, status/priority/difficulty/type/tags/flags, assignee/creator/reviewer/team/department, quick toggles, saved filter presets, sorting, export
@@ -61,6 +62,7 @@ then invalidates all existing sessions. Login is rate-limited (10 attempts per
 ### KPI Management (Admin)
 - Difficulty-weighted scoring (Easy 1 / Medium 2 / Hard 3 / Critical 5 pts)
 - `Performance = Completed Points + On-Time Bonus - Overdue Penalty + Rating`
+- **Self Task points**: every completed self task earns 1 pt if completed within 1 hour, 2 pts if longer
 - Top/lowest performers, team & department ranking, monthly/yearly KPI, performance trend
 - Users see only their own KPI summary
 

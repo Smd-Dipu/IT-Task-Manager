@@ -3,6 +3,7 @@ import { Plus, X, Trash2, Link2 } from 'lucide-react';
 import { api } from '../lib/api';
 import type { User, Team, Department, Task, Assignee } from '../lib/types';
 import { useSettings } from '../lib/settings';
+import { useAuth } from '../lib/auth';
 import { Modal, useToast, Switch } from './ui';
 import { cx, FLAGS, TASK_TYPES } from '../lib/utils';
 
@@ -39,11 +40,12 @@ export function emptyForm(): TaskFormValues {
   };
 }
 
-export default function TaskForm({ open, onClose, task, onSaved }: {
-  open: boolean; onClose: () => void; task?: Task | null; onSaved: (t: Task) => void;
+export default function TaskForm({ open, onClose, task, onSaved, selfTask }: {
+  open: boolean; onClose: () => void; task?: Task | null; onSaved: (t: Task) => void; selfTask?: boolean;
 }) {
   const settings = useSettings();
   const toast = useToast();
+  const { user: me } = useAuth();
   const [form, setForm] = useState<TaskFormValues>(emptyForm());
   const [users, setUsers] = useState<User[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -71,11 +73,13 @@ export default function TaskForm({ open, onClose, task, onSaved }: {
         recurring_rule: task.recurring_rule || '', parent_task_id: task.parent_task_id || '',
       });
     } else {
-      setForm(emptyForm());
+      const base = emptyForm();
+      if (selfTask && me) base.assignees = [me.id];
+      setForm(base);
     }
     setTagInput('');
     setNewCheck('');
-  }, [open, task]);
+  }, [open, task, selfTask, me]);
 
   const set = (patch: Partial<TaskFormValues>) => setForm((f) => ({ ...f, ...patch }));
   const toggleInList = (key: 'flags' | 'tags', v: string) => {
@@ -98,7 +102,7 @@ export default function TaskForm({ open, onClose, task, onSaved }: {
     if (!form.title.trim()) return toast('Task title is required', 'error');
     setSaving(true);
     try {
-      const payload = { ...form, assignees: form.assignees, reviewer_id: form.reviewer_id || null, team_id: form.team_id || null, department_id: form.department_id || null, parent_task_id: form.parent_task_id || null };
+      const payload: any = { ...form, is_self_task: selfTask ? 1 : 0, assignees: form.assignees, reviewer_id: form.reviewer_id || null, team_id: form.team_id || null, department_id: form.department_id || null, parent_task_id: form.parent_task_id || null };
       const saved = task
         ? await api.put<Task>(`/tasks/${task.id}`, payload)
         : await api.post<Task>('/tasks', payload);
@@ -115,13 +119,18 @@ export default function TaskForm({ open, onClose, task, onSaved }: {
   const flagSet = useMemo(() => [...new Set([...FLAGS, ...form.flags])], [form.flags]);
 
   return (
-    <Modal open={open} onClose={onClose} title={task ? 'Edit Task' : 'Create New Task'} width={760}
+    <Modal open={open} onClose={onClose} title={task ? 'Edit Task' : selfTask ? 'Create Self Task' : 'Create New Task'} width={760}
       footer={
         <>
           <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={save} disabled={saving}>{saving ? 'Saving...' : task ? 'Save Changes' : 'Create Task'}</button>
+          <button className="btn btn-primary" onClick={save} disabled={saving}>{saving ? 'Saving...' : task ? 'Save Changes' : selfTask ? 'Create Self Task' : 'Create Task'}</button>
         </>
       }>
+      {selfTask && !task && (
+        <div className="mb-4 px-3 py-2 rounded-lg text-sm bg-brand/10 text-brand border border-brand/20">
+          Self tasks are personal tasks assigned to yourself. Completing one earns KPI points (1 pt within 1 hour, 2 pts after 1 hour).
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="md:col-span-2">
           <label className="label">Task Title *</label>
@@ -204,15 +213,26 @@ export default function TaskForm({ open, onClose, task, onSaved }: {
       </div>
 
       <div className="mt-4">
-        <label className="label">Assignees (multiple)</label>
-        <div className="flex flex-wrap gap-1.5">
-          {users.map((u) => (
-            <button key={u.id} type="button" onClick={() => toggleAssignee(u.id)}
-              className={cx('chip !py-1.5 !px-2.5 cursor-pointer transition-all', form.assignees.includes(u.id) && '!bg-brand/15 !border-brand/40 !text-brand')}>
-              {u.name}
-            </button>
-          ))}
-        </div>
+        {selfTask && !task ? (
+          <div>
+            <label className="label">Assignee</label>
+            <span className="chip !bg-brand/15 !border-brand/40 !text-brand !py-1.5 !px-2.5">
+              {me ? (users.find((u) => u.id === me.id)?.name || me.name) : 'You'}
+            </span>
+          </div>
+        ) : (
+          <>
+            <label className="label">Assignees (multiple)</label>
+            <div className="flex flex-wrap gap-1.5">
+              {users.map((u) => (
+                <button key={u.id} type="button" onClick={() => toggleAssignee(u.id)}
+                  className={cx('chip !py-1.5 !px-2.5 cursor-pointer transition-all', form.assignees.includes(u.id) && '!bg-brand/15 !border-brand/40 !text-brand')}>
+                  {u.name}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       <div className="mt-4">

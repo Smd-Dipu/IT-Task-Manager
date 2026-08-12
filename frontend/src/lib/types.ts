@@ -85,6 +85,7 @@ export interface Task {
   is_recurring: boolean;
   recurring_rule?: string;
   archived: boolean;
+  is_self_task?: number | boolean;
   created_at: string;
   updated_at: string;
   completed_at?: string | null;
@@ -142,6 +143,7 @@ export interface KpiEntry {
   team_name?: string;
   department_name?: string;
   completed: number;
+  selfCompleted: number;
   totalAssigned: number;
   totalDone: number;
   completionRate: number;
