@@ -150,7 +150,8 @@ router.get('/', (req, res) => {
       .sort((a, b) => b.score - a.score);
     kpi = list;
   } else {
-    kpi = [computeUserKpi(uid, r.start, r.end, cfg)];
+    const me = db.prepare('SELECT id, name, avatar FROM users WHERE id = ?').get(uid);
+    kpi = [{ ...computeUserKpi(uid, r.start, r.end, cfg), ...me }];
   }
 
   const calendar = db.prepare(`

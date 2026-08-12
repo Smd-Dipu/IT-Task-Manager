@@ -132,7 +132,7 @@ export default function Dashboard() {
           series={[{ key: 'added', name: 'Added', color: brand }, { key: 'done', name: 'Completed', color: '#14b8a6' }]} />
         <BarChartCard title="User Performance Ranking" subtitle="Completed tasks by user" data={(data?.userPerf || []).map((u) => ({ name: u.name, done: u.done }))} xKey="name"
           series={[{ key: 'done', name: 'Completed', color: '#f97316' }]} />
-        <BarChartCard title="KPI Score Chart" subtitle="Performance scores this period" data={(data?.kpi || []).slice(0, 10).map((k) => ({ name: k.name.split(' ')[0], score: k.score }))} xKey="name"
+        <BarChartCard title="KPI Score Chart" subtitle="Performance scores this period" data={(data?.kpi || []).slice(0, 10).map((k) => ({ name: (k.name || 'User').split(' ')[0], score: k.score }))} xKey="name"
           series={[{ key: 'score', name: 'KPI Score', color: '#8b5cf6' }]} />
       </div>
 
