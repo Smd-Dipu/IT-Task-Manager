@@ -70,7 +70,7 @@ then invalidates all existing sessions. Login is rate-limited (10 attempts per
 ### Administration
 - User management (create/edit, role assignment, reset passwords, activate/deactivate)
 - Team & department management
-- Settings: task statuses (color-coded), priorities, KPI formula, working days, business hours, holidays, notification rules, security (2FA toggle)
+- Settings: task statuses (add/edit/delete, color-coded), priorities (add/edit/delete, KPI weight), KPI formula (editable at any time), working days, business hours, holidays, notification rules, security (2FA toggle)
 - Audit logs, saved filters, exports (CSV/XLSX/PDF)
 
 ### UX

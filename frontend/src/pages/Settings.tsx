@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Settings as SettingsIcon, Plus, X, Save, CalendarDays, Bell, Shield, Gauge } from 'lucide-react';
+import { Settings as SettingsIcon, Plus, X, Save, CalendarDays, Bell, Shield, Gauge, Pencil, Trash2 } from 'lucide-react';
 import { api } from '../lib/api';
 import type { Settings } from '../lib/types';
 import { useSetSettings } from '../lib/settings';
@@ -15,8 +15,10 @@ export default function SettingsPage() {
   const [kpiModal, setKpiModal] = useState(false);
   const [editStatus, setEditStatus] = useState<{ id: string; name: string; color: string } | null>(null);
   const [newStatus, setNewStatus] = useState<{ id: string; name: string; color: string }>({ id: '', name: '', color: '#6366f1' });
-  const [editPrio, setEditPrio] = useState<{ id: string; name: string; color: string } | null>(null);
-  const [newPrio, setNewPrio] = useState<{ id: string; name: string; color: string }>({ id: '', name: '', color: '#6366f1' });
+  const [delStatus, setDelStatus] = useState<{ id: string; name: string } | null>(null);
+  const [editPrio, setEditPrio] = useState<{ id: string; name: string; color: string; weight: number } | null>(null);
+  const [newPrio, setNewPrio] = useState<{ id: string; name: string; color: string; weight: number }>({ id: '', name: '', color: '#6366f1', weight: 3 });
+  const [delPrio, setDelPrio] = useState<{ id: string; name: string } | null>(null);
   const [holidayDate, setHolidayDate] = useState('');
   const [holidayName, setHolidayName] = useState('');
   const [delHoliday, setDelHoliday] = useState<string | null>(null);
@@ -55,13 +57,24 @@ export default function SettingsPage() {
   };
   const savePrio = async () => {
     if (!editPrio) return;
-    const list = settings.priorities.map((p) => p.id === editPrio.id ? { ...p, name: editPrio.name, color: editPrio.color } : p);
+    const list = settings.priorities.map((p) => p.id === editPrio.id ? { ...p, name: editPrio.name, color: editPrio.color, weight: editPrio.weight } : p);
     if (await save({ priorities: list })) setPrioModal(false);
   };
   const addPrio = async () => {
     if (!newPrio.name || !newPrio.id) return toast('Name and id required', 'error');
-    const list = [...settings.priorities, { ...newPrio, weight: 3 }];
+    const list = [...settings.priorities, newPrio];
     if (await save({ priorities: list })) setPrioModal(false);
+  };
+
+  const deleteStatus = async () => {
+    if (!delStatus) return;
+    const list = settings.taskStatuses.filter((s) => s.id !== delStatus.id);
+    if (await save({ taskStatuses: list })) setDelStatus(null);
+  };
+  const deletePrio = async () => {
+    if (!delPrio) return;
+    const list = settings.priorities.filter((p) => p.id !== delPrio.id);
+    if (await save({ priorities: list })) setDelPrio(null);
   };
 
   const saveKpi = async () => {
@@ -95,10 +108,12 @@ export default function SettingsPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           {settings.taskStatuses.map((s) => (
-            <button key={s.id} onClick={() => { setEditStatus(s); setStatusModal(true); }}
-              className="chip !py-1.5 !px-3 cursor-pointer transition-all hover:scale-105" style={{ color: s.color, borderColor: s.color, background: `${s.color}14` }}>
-              <span className="w-2 h-2 rounded-full" style={{ background: s.color }} /> {s.name}
-            </button>
+            <span key={s.id} className="chip !py-1 !pl-2 !pr-1 flex items-center gap-1" style={{ color: s.color, borderColor: s.color, background: `${s.color}14` }}>
+              <span className="w-2 h-2 rounded-full" style={{ background: s.color }} />
+              <span className="mx-0.5">{s.name}</span>
+              <button title="Edit status" onClick={() => { setEditStatus(s); setStatusModal(true); }} className="p-1 rounded hover:bg-black/5 transition-colors"><Pencil size={12} /></button>
+              <button title="Delete status" onClick={() => setDelStatus(s)} className="p-1 rounded hover:bg-black/5 transition-colors text-bad"><Trash2 size={12} /></button>
+            </span>
           ))}
         </div>
       </div>
@@ -109,14 +124,15 @@ export default function SettingsPage() {
             <h3 className="font-bold">Priority Levels</h3>
             <p className="text-xs text-ink3">Used in filtering and KPI weighting</p>
           </div>
-          <button className="btn btn-primary btn-sm" onClick={() => { setEditPrio(null); setNewPrio({ id: '', name: '', color: '#6366f1' }); setPrioModal(true); }}><Plus size={14} /> Add</button>
+          <button className="btn btn-primary btn-sm" onClick={() => { setEditPrio(null); setNewPrio({ id: '', name: '', color: '#6366f1', weight: 3 }); setPrioModal(true); }}><Plus size={14} /> Add</button>
         </div>
         <div className="flex flex-wrap gap-2">
           {settings.priorities.map((p) => (
-            <button key={p.id} onClick={() => { setEditPrio(p); setPrioModal(true); }}
-              className="chip !py-1.5 !px-3 cursor-pointer transition-all hover:scale-105" style={{ color: p.color, borderColor: p.color, background: `${p.color}14` }}>
+            <span key={p.id} className="chip !py-1 !pl-2 !pr-1 flex items-center gap-1" style={{ color: p.color, borderColor: p.color, background: `${p.color}14` }}>
               {p.name} <span className="opacity-60">(w{p.weight})</span>
-            </button>
+              <button title="Edit priority" onClick={() => { setEditPrio({ id: p.id, name: p.name, color: p.color, weight: p.weight }); setPrioModal(true); }} className="p-1 rounded hover:bg-black/5 transition-colors"><Pencil size={12} /></button>
+              <button title="Delete priority" onClick={() => setDelPrio(p)} className="p-1 rounded hover:bg-black/5 transition-colors text-bad"><Trash2 size={12} /></button>
+            </span>
           ))}
         </div>
       </div>
@@ -127,7 +143,7 @@ export default function SettingsPage() {
             <h3 className="font-bold flex items-center gap-2"><Gauge size={16} className="text-brand" /> KPI Formula</h3>
             <p className="text-xs text-ink3">Performance Score = Completed Points + On-Time Bonus - Overdue Penalty + Rating</p>
           </div>
-          <button className="btn btn-ghost btn-sm" onClick={() => setKpiModal(true)}>Configure</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => setKpiModal(true)}><Pencil size={13} /> Edit/Update</button>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-center">
           {[
@@ -249,6 +265,11 @@ export default function SettingsPage() {
             <input className="input" value={editPrio?.name || newPrio.name} onChange={(e) => editPrio ? setEditPrio({ ...editPrio, name: e.target.value }) : setNewPrio({ ...newPrio, name: e.target.value })} />
           </div>
           <div>
+            <label className="label">Weight</label>
+            <input type="number" min={1} max={10} className="input" value={editPrio?.weight ?? newPrio.weight}
+              onChange={(e) => editPrio ? setEditPrio({ ...editPrio, weight: Number(e.target.value) }) : setNewPrio({ ...newPrio, weight: Number(e.target.value) })} />
+          </div>
+          <div>
             <label className="label">Color</label>
             <div className="flex items-center gap-3">
               <input type="color" className="h-10 w-16 rounded-lg cursor-pointer bg-card2 border border-line" value={editPrio?.color || newPrio.color}
@@ -296,6 +317,12 @@ export default function SettingsPage() {
 
       <ConfirmModal open={!!delHoliday} onClose={() => setDelHoliday(null)} onConfirm={async () => { await api.delete(`/settings/holidays/${delHoliday}`); setDelHoliday(null); api.get<{ id: number; date: string; name: string }[]>('/settings/holidays').then(setHolidays).catch(() => {}); toast('Holiday removed'); }}
         title="Remove holiday?" confirmLabel="Remove" danger />
+
+      <ConfirmModal open={!!delStatus} onClose={() => setDelStatus(null)} onConfirm={deleteStatus}
+        title="Delete task status?" message={`Delete "${delStatus?.name}"? Tasks currently in this status will be unaffected but the status option will no longer be available.`} confirmLabel="Delete" danger />
+
+      <ConfirmModal open={!!delPrio} onClose={() => setDelPrio(null)} onConfirm={deletePrio}
+        title="Delete priority level?" message={`Delete "${delPrio?.name}"? Tasks currently using this priority will keep it, but the priority option will no longer be available.`} confirmLabel="Delete" danger />
     </div>
   );
 }
