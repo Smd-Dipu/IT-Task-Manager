@@ -154,34 +154,42 @@ export default function TaskForm({ open, onClose, task, onSaved, selfTask }: {
             {(settings?.priorities || []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
         </div>
-        <div>
-          <label className="label">Difficulty</label>
-          <select className="input" value={form.difficulty} onChange={(e) => set({ difficulty: e.target.value })}>
-            {(settings?.difficulties || []).map((d) => <option key={d.id} value={d.id}>{d.name} ({d.points} pts)</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="label">Task Type</label>
-          <select className="input" value={form.task_type} onChange={(e) => set({ task_type: e.target.value })}>
-            {TASK_TYPES.map((t) => <option key={t} value={t}>{t[0].toUpperCase() + t.slice(1)}</option>)}
-          </select>
-        </div>
+        {task && (
+          <>
+            <div>
+              <label className="label">Difficulty</label>
+              <select className="input" value={form.difficulty} onChange={(e) => set({ difficulty: e.target.value })}>
+                {(settings?.difficulties || []).map((d) => <option key={d.id} value={d.id}>{d.name} ({d.points} pts)</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">Task Type</label>
+              <select className="input" value={form.task_type} onChange={(e) => set({ task_type: e.target.value })}>
+                {TASK_TYPES.map((t) => <option key={t} value={t}>{t[0].toUpperCase() + t.slice(1)}</option>)}
+              </select>
+            </div>
+          </>
+        )}
         <div>
           <label className="label">Due Date</label>
           <input type="date" className="input" value={form.due_date} onChange={(e) => set({ due_date: e.target.value })} />
         </div>
-        <div>
-          <label className="label">Start Date</label>
-          <input type="date" className="input" value={form.start_date} onChange={(e) => set({ start_date: e.target.value })} />
-        </div>
-        <div>
-          <label className="label">Budget</label>
-          <input type="number" className="input" placeholder="0" value={form.budget} onChange={(e) => set({ budget: Number(e.target.value) })} />
-        </div>
-        <div>
-          <label className="label">Estimated Hours</label>
-          <input type="number" className="input" placeholder="0" value={form.estimated_hours} onChange={(e) => set({ estimated_hours: Number(e.target.value) })} />
-        </div>
+        {task && (
+          <>
+            <div>
+              <label className="label">Start Date</label>
+              <input type="date" className="input" value={form.start_date} onChange={(e) => set({ start_date: e.target.value })} />
+            </div>
+            <div>
+              <label className="label">Budget</label>
+              <input type="number" className="input" placeholder="0" value={form.budget} onChange={(e) => set({ budget: Number(e.target.value) })} />
+            </div>
+            <div>
+              <label className="label">Estimated Hours</label>
+              <input type="number" className="input" placeholder="0" value={form.estimated_hours} onChange={(e) => set({ estimated_hours: Number(e.target.value) })} />
+            </div>
+          </>
+        )}
         <div>
           <label className="label">Team</label>
           <select className="input" value={String(form.team_id)} onChange={(e) => set({ team_id: e.target.value ? Number(e.target.value) : '' })}>
@@ -196,20 +204,24 @@ export default function TaskForm({ open, onClose, task, onSaved, selfTask }: {
             {depts.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
         </div>
-        <div>
-          <label className="label">Reviewer</label>
-          <select className="input" value={String(form.reviewer_id)} onChange={(e) => set({ reviewer_id: e.target.value ? Number(e.target.value) : '' })}>
-            <option value="">None</option>
-            {users.filter((u) => u.role !== 'user' || form.assignees.includes(u.id)).map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="label">Depends On (Task)</label>
-          <select className="input" value={String(form.parent_task_id)} onChange={(e) => set({ parent_task_id: e.target.value ? Number(e.target.value) : '' })}>
-            <option value="">None</option>
-            {allTasks.filter((t) => !task || t.id !== task.id).map((t) => <option key={t.id} value={t.id}>#{t.id} {t.title.slice(0, 40)}</option>)}
-          </select>
-        </div>
+        {task && (
+          <>
+            <div>
+              <label className="label">Reviewer</label>
+              <select className="input" value={String(form.reviewer_id)} onChange={(e) => set({ reviewer_id: e.target.value ? Number(e.target.value) : '' })}>
+                <option value="">None</option>
+                {users.filter((u) => u.role !== 'user' || form.assignees.includes(u.id)).map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">Depends On (Task)</label>
+              <select className="input" value={String(form.parent_task_id)} onChange={(e) => set({ parent_task_id: e.target.value ? Number(e.target.value) : '' })}>
+                <option value="">None</option>
+                {allTasks.filter((t) => !task || t.id !== task.id).map((t) => <option key={t.id} value={t.id}>#{t.id} {t.title.slice(0, 40)}</option>)}
+              </select>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="mt-4">
@@ -260,23 +272,25 @@ export default function TaskForm({ open, onClose, task, onSaved, selfTask }: {
         </div>
       </div>
 
-      <div className="mt-4">
-        <label className="label">Checklist</label>
-        <div className="space-y-1.5">
-          {form.checklist.map((c, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <span className="chip flex-1">{c}</span>
-              <button type="button" className="p-1 text-ink3 hover:text-bad" onClick={() => set({ checklist: form.checklist.filter((_, j) => j !== i) })}><Trash2 size={13} /></button>
+      {task && (
+        <div className="mt-4">
+          <label className="label">Checklist</label>
+          <div className="space-y-1.5">
+            {form.checklist.map((c, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span className="chip flex-1">{c}</span>
+                <button type="button" className="p-1 text-ink3 hover:text-bad" onClick={() => set({ checklist: form.checklist.filter((_, j) => j !== i) })}><Trash2 size={13} /></button>
+              </div>
+            ))}
+            <div className="flex gap-1.5">
+              <input className="input !py-1.5" placeholder="Checklist item" value={newCheck}
+                onChange={(e) => setNewCheck(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (newCheck.trim()) { set({ checklist: [...form.checklist, newCheck.trim()] }); setNewCheck(''); } } }} />
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => { if (newCheck.trim()) { set({ checklist: [...form.checklist, newCheck.trim()] }); setNewCheck(''); } }}><Plus size={13} /></button>
             </div>
-          ))}
-          <div className="flex gap-1.5">
-            <input className="input !py-1.5" placeholder="Checklist item" value={newCheck}
-              onChange={(e) => setNewCheck(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (newCheck.trim()) { set({ checklist: [...form.checklist, newCheck.trim()] }); setNewCheck(''); } } }} />
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => { if (newCheck.trim()) { set({ checklist: [...form.checklist, newCheck.trim()] }); setNewCheck(''); } }}><Plus size={13} /></button>
           </div>
         </div>
-      </div>
+      )}
 
       <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
         <Switch checked={form.is_blocked} onChange={(v) => set({ is_blocked: v })} label="Blocked task" />

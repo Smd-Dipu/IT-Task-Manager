@@ -52,7 +52,7 @@ then invalidates all existing sessions. Login is rate-limited (10 attempts per
 - **User Dashboard**: my tasks, today's tasks, overdue, completed, pending approval, avg completion time, personal KPI score, calendar, notifications, personal charts
 
 ### Task Management
-- Full task form: status, priority, difficulty, type, flags, tags, budget, hours, due date, team, department, reviewer, dependencies, checklist, recurrence, blocked flag
+- Full task form: status, priority, due date, team, department, assignees, flags, tags, recurrence, blocked flag (difficulty, type, budget, hours, reviewer, dependencies, checklist shown when editing)
 - **Multiple assignees** with individual progress tracking
 - **Self Tasks** (user mode): create a personal task assigned to yourself, track it, and mark it Completed for KPI points
 - **Views**: List, Grid, Kanban (drag & drop), Calendar, Timeline
