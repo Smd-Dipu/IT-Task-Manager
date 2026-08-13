@@ -1,17 +1,46 @@
 import { DatabaseSync } from 'node:sqlite';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const DATA_DIR = path.join(__dirname, '..', 'data');
 export const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
+export const DB_PATH = path.join(DATA_DIR, 'taskflow.db');
 mkdirSync(UPLOAD_DIR, { recursive: true });
 
-export const db = new DatabaseSync(path.join(DATA_DIR, 'taskflow.db'));
+export let db = new DatabaseSync(DB_PATH);
 
 db.exec('PRAGMA journal_mode = WAL;');
 db.exec('PRAGMA foreign_keys = ON;');
+
+export function openDatabase(filePath = DB_PATH) {
+  const handle = new DatabaseSync(filePath);
+  handle.exec('PRAGMA journal_mode = WAL;');
+  handle.exec('PRAGMA foreign_keys = ON;');
+  ensureSchema(handle);
+  return handle;
+}
+
+export function ensureSchema(handle = db) {
+  const taskCols = handle.prepare('PRAGMA table_info(tasks)').all().map((c) => c.name);
+  if (!taskCols.includes('is_self_task')) {
+    handle.exec("ALTER TABLE tasks ADD COLUMN is_self_task INTEGER NOT NULL DEFAULT 0");
+  }
+}
+
+export function closeDatabase() {
+  try { db.close(); } catch { /* already closed */ }
+}
+
+export function replaceDatabase(buffer) {
+  closeDatabase();
+  for (const suffix of ['-wal', '-shm']) {
+    try { rmSync(DB_PATH + suffix, { force: true }); } catch { /* noop */ }
+  }
+  writeFileSync(DB_PATH, buffer);
+  db = openDatabase(DB_PATH);
+}
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS users (
@@ -78,10 +107,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   completed_at TEXT
 );
 `);
-const taskCols = db.prepare('PRAGMA table_info(tasks)').all().map((c) => c.name);
-if (!taskCols.includes('is_self_task')) {
-  db.exec("ALTER TABLE tasks ADD COLUMN is_self_task INTEGER NOT NULL DEFAULT 0");
-}
+ensureSchema();
 db.exec(`
 CREATE TABLE IF NOT EXISTS task_assignees (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

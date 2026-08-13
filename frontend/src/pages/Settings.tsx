@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { Settings as SettingsIcon, Plus, X, Save, CalendarDays, Bell, Shield, Gauge, Pencil, Trash2 } from 'lucide-react';
-import { api } from '../lib/api';
+import React, { useEffect, useRef, useState } from 'react';
+import { Settings as SettingsIcon, Plus, X, Save, CalendarDays, Bell, Shield, Gauge, Pencil, Trash2, DatabaseBackup, Download, UploadCloud, LoaderCircle, AlertTriangle, Check } from 'lucide-react';
+import { api, downloadExport } from '../lib/api';
 import type { Settings } from '../lib/types';
 import { useSetSettings } from '../lib/settings';
 import { Switch, Modal, useToast, ConfirmModal, Badge } from '../components/ui';
@@ -22,6 +22,13 @@ export default function SettingsPage() {
   const [holidayDate, setHolidayDate] = useState('');
   const [holidayName, setHolidayName] = useState('');
   const [delHoliday, setDelHoliday] = useState<string | null>(null);
+  const [backingUp, setBackingUp] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [restoreFile, setRestoreFile] = useState<File | null>(null);
+  const [restoreConfirm, setRestoreConfirm] = useState(false);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
+  const [restoreDone, setRestoreDone] = useState<string | null>(null);
+  const restoreInputRef = useRef<HTMLInputElement>(null);
   const setGlobalSettings = useSetSettings();
   const toast = useToast();
 
@@ -87,6 +94,58 @@ export default function SettingsPage() {
     setHolidayDate(''); setHolidayName('');
     api.get<{ id: number; date: string; name: string }[]>('/settings/holidays').then(setHolidays).catch(() => {});
     toast('Holiday added');
+  };
+
+  const runBackup = async () => {
+    setBackingUp(true);
+    try {
+      const stamp = new Date().toISOString().slice(0, 10);
+      await downloadExport('/settings/backup', `taskflow-backup-${stamp}.taskflow`);
+      toast('Full backup downloaded');
+    } catch (e: any) { toast(e.message, 'error'); }
+    finally { setBackingUp(false); }
+  };
+
+  const onPickRestore = async (file: File | null) => {
+    setRestoreError(null);
+    setRestoreDone(null);
+    setRestoreFile(file);
+    if (!file) return;
+    const text = await file.text().catch(() => '');
+    let parsed: any = null;
+    try { parsed = JSON.parse(text); } catch { /* handled below */ }
+    if (!parsed || parsed.format !== 'taskflow-backup') {
+      setRestoreError('This file is not a valid TaskFlow backup. Please choose a backup file generated from the Full Backup option.');
+      setRestoreFile(null);
+      if (restoreInputRef.current) restoreInputRef.current.value = '';
+      return;
+    }
+    if (parsed.version !== 1) {
+      setRestoreError(`Unsupported backup version (${parsed.version}). This backup was created by an incompatible version of the application.`);
+      setRestoreFile(null);
+      if (restoreInputRef.current) restoreInputRef.current.value = '';
+      return;
+    }
+  };
+
+  const runRestore = async () => {
+    if (!restoreFile) return;
+    setRestoring(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', restoreFile);
+      fd.append('confirm', 'true');
+      const res = await api.upload<{ ok: boolean; message: string }>('/settings/backup/restore', fd);
+      const msg = res?.message || 'Backup restored successfully';
+      toast(msg);
+      setRestoreDone(msg);
+      setRestoreFile(null);
+      if (restoreInputRef.current) restoreInputRef.current.value = '';
+      setTimeout(() => window.location.reload(), 2500);
+    } catch (e: any) {
+      toast(e.message || 'Restore failed', 'error');
+      setRestoring(false);
+    }
   };
 
   const weekday = (n: number) => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][n];
@@ -229,6 +288,42 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      <div className="card p-5">
+        <h3 className="font-bold flex items-center gap-2 mb-1"><DatabaseBackup size={16} className="text-brand" /> Backup & Restore</h3>
+        <p className="text-sm text-ink2 mb-4">Create a full snapshot of the application data (database, settings, holidays, attachments) or restore it from a previously generated backup file.</p>
+
+        <div className="flex flex-wrap items-center gap-3 p-4 rounded-xl bg-card2/60 border border-line">
+          <div className="flex-1 min-w-52">
+            <div className="font-semibold text-sm">Full Backup</div>
+            <div className="text-xs text-ink3 mt-0.5">Downloads a single .taskflow file containing all system data and configuration.</div>
+          </div>
+          <button className="btn btn-primary" onClick={runBackup} disabled={backingUp}>
+            {backingUp ? <LoaderCircle size={15} className="animate-spin" /> : <Download size={15} />}
+            {backingUp ? 'Generating...' : 'Full Backup'}
+          </button>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 p-4 rounded-xl bg-card2/60 border border-line mt-3">
+          <div className="flex-1 min-w-52">
+            <div className="font-semibold text-sm">Restore Backup</div>
+            <div className="text-xs text-ink3 mt-0.5">Upload a .taskflow backup file to restore it. Current data will be replaced.</div>
+            {restoreError && <div className="text-xs text-bad mt-1.5 flex items-start gap-1"><AlertTriangle size={12} className="shrink-0 mt-0.5" /> {restoreError}</div>}
+            {restoreDone && <div className="text-xs text-ok mt-1.5 flex items-start gap-1 font-semibold"><Check size={12} className="shrink-0 mt-0.5" /> {restoreDone}</div>}
+          </div>
+          <div className="flex items-center gap-2">
+            <input ref={restoreInputRef} type="file" accept=".taskflow,application/json,.json" className="hidden"
+              onChange={(e) => onPickRestore(e.target.files?.[0] ?? null)} />
+            <button className="btn btn-ghost btn-sm" onClick={() => restoreInputRef.current?.click()}>
+              {restoreFile ? <><X size={14} /> {restoreFile.name.slice(0, 24)}</> : <><UploadCloud size={14} /> Choose file</>}
+            </button>
+            <button className="btn btn-primary btn-sm" disabled={!restoreFile || restoring} onClick={() => restoreFile && setRestoreConfirm(true)}>
+              {restoring ? <LoaderCircle size={14} className="animate-spin" /> : <UploadCloud size={14} />}
+              {restoring ? 'Restoring...' : 'Restore'}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <Modal open={statusModal} onClose={() => setStatusModal(false)} title={editStatus ? 'Edit Status' : 'Add Status'}
         footer={<><button className="btn btn-ghost" onClick={() => setStatusModal(false)}>Cancel</button>
           <button className="btn btn-primary" onClick={editStatus ? saveStatus : addStatus}>{editStatus ? 'Save' : 'Add'}</button></>}>
@@ -323,6 +418,10 @@ export default function SettingsPage() {
 
       <ConfirmModal open={!!delPrio} onClose={() => setDelPrio(null)} onConfirm={deletePrio}
         title="Delete priority level?" message={`Delete "${delPrio?.name}"? Tasks currently using this priority will keep it, but the priority option will no longer be available.`} confirmLabel="Delete" danger />
+
+      <ConfirmModal open={restoreConfirm} onClose={() => setRestoreConfirm(false)} onConfirm={runRestore}
+        title="Restore this backup?" danger confirmLabel="Yes, Restore Backup"
+        message={`Restoring "${restoreFile?.name}" will replace ALL current data (users, tasks, settings, holidays, attachments) with the contents of this backup. A safety backup of the current data is created automatically before restoring. This cannot be undone.`} />
     </div>
   );
 }

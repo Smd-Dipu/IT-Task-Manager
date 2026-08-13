@@ -17,6 +17,7 @@ import kpiRoutes from './routes/kpi.js';
 import dashboardRoutes from './routes/dashboard.js';
 import reportRoutes from './routes/reports.js';
 import uploadRoutes from './routes/uploads.js';
+import backupRoutes from './routes/backup.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 await seed();
@@ -37,6 +38,7 @@ app.use('/api/kpi', kpiRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/uploads', uploadRoutes);
+app.use('/api/settings', backupRoutes);
 
 const publicDir = path.join(__dirname, '..', '..', 'frontend', 'dist');
 if (fs.existsSync(publicDir)) {

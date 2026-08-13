@@ -71,6 +71,7 @@ then invalidates all existing sessions. Login is rate-limited (10 attempts per
 - User management (create/edit, role assignment, reset passwords, activate/deactivate)
 - Team & department management
 - Settings: task statuses (add/edit/delete, color-coded), priorities (add/edit/delete, KPI weight), KPI formula (editable at any time), working days, business hours, holidays, notification rules, security (2FA toggle)
+- Backup & Restore: full system backup (database, settings, holidays, attachments) downloaded as a single `.taskflow` file; validated restore with integrity checksum, confirmation step, and automatic pre-restore safety backup
 - Audit logs, saved filters, exports (CSV/XLSX/PDF)
 
 ### UX
@@ -88,7 +89,7 @@ backend/src/
   config.js       Default settings (statuses, priorities, KPI)
   middleware.js   JWT auth, RBAC, audit logging, notifications
   routes/         auth, users, teams, departments, tasks, settings,
-                  kpi, dashboard, reports/export, notifications, audit, uploads
+                  kpi, dashboard, reports/export, notifications, audit, uploads, backup
 frontend/src/
   lib/            api client, auth, theme, settings, types, utils, filters
   components/     ui kit, layout, charts, filters, task views, task form
