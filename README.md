@@ -13,6 +13,26 @@ glassmorphism UI with full dark/light theming.
 
 ## Quick Start
 
+The easiest way to set up and start the whole application (dependencies, frontend build,
+JWT configuration, database, server) is one of the launcher scripts — supports Windows and Linux:
+
+```bash
+# Windows (one command)
+start.bat
+
+# Linux / macOS (one command)
+chmod +x start.sh
+./start.sh
+```
+
+Both scripts automatically verify Node.js 22.5+, install backend & frontend dependencies,
+build the frontend, create a persistent `JWT_SECRET` in `backend/.env`, initialize the SQLite
+database, and start the production server on `http://localhost:3001`
+(specify a port: `start.bat 8080` or `./start.sh 8080`). On Linux,
+`./start.sh --systemd` additionally installs a boot-starting systemd service.
+
+For local development with hot reload:
+
 ```bash
 # Install dependencies
 npm run install:all
@@ -35,10 +55,13 @@ evaluate the system until real user accounts are provisioned by an administrator
 
 ### Production Configuration
 
-Set a strong `JWT_SECRET` environment variable before deploying. If it is not set, the
-backend falls back to an ephemeral random secret and prints a warning — every restart
-then invalidates all existing sessions. Login is rate-limited (10 attempts per
-15 minutes per account) to deter brute force attacks.
+A persistent `JWT_SECRET` is generated automatically on first start and saved to `backend/.env`,
+so sessions survive restarts with no manual setup. For full control, set `JWT_SECRET` as an
+environment variable before deploying (this takes precedence over `backend/.env`). If neither
+is present, the backend falls back to an ephemeral random secret and prints a warning — every
+restart then invalidates all existing sessions. Login is rate-limited (10 attempts per
+15 minutes per account) to deter brute force attacks. See `DEPLOYMENT.md` for the full
+production guide.
 
 ## Features
 

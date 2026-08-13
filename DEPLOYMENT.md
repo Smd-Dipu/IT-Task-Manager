@@ -4,6 +4,53 @@ This guide explains how to deploy TaskFlow (an enterprise task-management applic
 own server and run it as a production system. Follow the steps in order. Every command is
 intended to be run on a fresh Linux server (Ubuntu/Debian shown; adapt paths for your distro).
 
+> **Quick start:** if you want the whole environment set up and the app started with **one
+> command**, skip ahead to §0. `start.bat` (Windows) / `start.sh` (Linux) automate everything
+> below. The rest of this guide documents each step manually for production hardening.
+
+---
+
+## 0. One-Command Setup & Start
+
+TaskFlow ships two launcher scripts that automate dependency install, frontend build,
+JWT configuration, database creation, and server startup. Run either one from the repo root
+and the app is live at `http://localhost:3001` (built UI + API on a single port).
+
+| Platform | Command | Result |
+|----------|---------|--------|
+| Windows | `start.bat` | Full setup + starts server; opens the browser |
+| Linux / macOS | `./start.sh` | Full setup + starts server in the foreground |
+
+Both scripts do the same things automatically:
+
+1. **Environment check** — verifies Node.js **22.5+** (required for the built-in `node:sqlite`
+   module). `start.sh` auto-installs Node 22 LTS on Debian/Ubuntu when it is missing.
+2. **Dependencies** — runs `npm install` in `backend/` and `frontend/` (skipped when already
+   installed; pass `--rebuild` to force).
+3. **Build** — builds the frontend into `frontend/dist/` (skipped when already built).
+4. **Configuration** — on first start the backend generates a persistent `JWT_SECRET`, saves it
+   to `backend/.env`, and reuses it on every subsequent start (sessions survive restarts).
+   No manual secret generation is required.
+5. **Database** — creates `backend/data/`; the SQLite database `taskflow.db` is created and
+   seeded automatically on first start.
+6. **Startup** — starts the production server (`node backend/src/index.js`) on port `3001`
+   (override with an argument, e.g. `start.bat 8080` or `./start.sh 8080`).
+
+### Linux production install (systemd)
+
+On Linux, `start.sh --systemd` additionally installs TaskFlow as a boot-starting, auto-restarting
+systemd service (env file at `/etc/taskflow/taskflow.env`, unit `taskflow.service`), which is the
+recommended production setup. Example:
+
+```bash
+chmod +x start.sh
+sudo ./start.sh --systemd        # installs + starts the service
+systemctl status taskflow --no-pager
+```
+
+> The manual steps below (app user, Nginx/Caddy reverse proxy, HTTPS, firewalls) remain the
+> recommended hardening for internet-facing production deployments.
+
 ---
 
 ## 1. Architecture Overview
@@ -113,10 +160,14 @@ frontend build via a relative path (`../../frontend/dist`).
 ```
 /opt/taskflow/                     # deploy directory (example)
 ├── package.json                   # root scripts (install:all, build, dev, start)
+├── start.bat                      # one-command launcher for Windows (see §0)
+├── start.sh                       # one-command launcher for Linux/macOS (see §0)
 ├── README.md
 ├── backend/
 │   ├── package.json
+│   ├── .env                       # CREATED ON FIRST START (gitignored) — JWT_SECRET
 │   ├── src/                       # Express application code
+│   │   ├── env.js                 # loads backend/.env + generates persistent JWT_SECRET
 │   │   ├── index.js               # entry point (reads PORT, JWT_SECRET)
 │   │   ├── db.js                  # SQLite schema + data dir paths
 │   │   ├── seed.js                # demo data (runs only on empty DB)
@@ -146,12 +197,14 @@ Two directories are created **at runtime** and must be writable by the app user:
 
 ## 5. Environment Variable Configuration
 
-TaskFlow reads exactly two environment variables. Set them in the systemd unit (see §11) so they
-survive restarts.
+TaskFlow reads exactly two environment variables. In addition to the systemd environment file
+(see §11), the backend automatically loads a `backend/.env` file if present, and **generates a
+persistent `JWT_SECRET` into it on first start** (see §0). Values already set in the process
+environment (e.g. via `EnvironmentFile`) always win over the `.env` file.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `JWT_SECRET` | **Yes** | ephemeral random | Secret used to sign JWT tokens. If unset, a random secret is generated at startup and **every restart invalidates all sessions**. Set a strong fixed value. |
+| `JWT_SECRET` | **Yes** | generated & persisted to `backend/.env` | Secret used to sign JWT tokens. If unset, a random secret is generated at startup and **every restart invalidates all sessions**. Set a strong fixed value. |
 | `PORT` | No | `3001` | TCP port the backend listens on. |
 
 ### Generate a strong JWT secret
