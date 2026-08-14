@@ -7,6 +7,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { db, DATA_DIR, UPLOAD_DIR, replaceDatabase } from '../db.js';
 import { requireAuth, requireAdmin, audit } from '../middleware.js';
 import { resetSettingsCache } from '../config.js';
+import { isoNow } from '../utils.js';
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -119,7 +120,7 @@ router.get('/backup', (req, res) => {
     audit(req, 'backup.create', 'backup', null, `Generated full system backup (${(Buffer.byteLength(JSON.stringify(manifest)) / 1024).toFixed(0)} KB)`);
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Content-Disposition', `attachment; filename="taskflow-backup-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.taskflow"`);
+    res.setHeader('Content-Disposition', `attachment; filename="taskflow-backup-${isoNow().slice(0, 19).replace(/[:T]/g, '-')}.taskflow"`);
     res.send(JSON.stringify(manifest));
   } catch (e) {
     res.status(500).json({ error: 'Failed to generate backup: ' + (e.message || e) });
@@ -154,7 +155,7 @@ router.post('/backup/restore', upload.single('file'), async (req, res) => {
     if (!check.ok) return res.status(400).json({ error: 'Incompatible backup: ' + check.error });
 
     const preRestore = buildBackupManifest();
-    const safetyName = `pre-restore-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.taskflow`;
+    const safetyName = `pre-restore-${isoNow().slice(0, 19).replace(/[:T]/g, '-')}.taskflow`;
     try { fs.writeFileSync(path.join(DATA_DIR, safetyName), JSON.stringify(preRestore)); } catch { /* noop */ }
 
     replaceDatabase(dbBuf);

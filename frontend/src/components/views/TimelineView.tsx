@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { Flag, CalendarDays } from 'lucide-react';
 import type { Task } from '../../lib/types';
 import { useSettings } from '../../lib/settings';
-import { statusById, priorityById, fmtDate, isOverdue, cx } from '../../lib/utils';
+import { statusById, priorityById, fmtDate, isOverdue, cx, parseBd } from '../../lib/utils';
 import { Avatar, Badge } from '../ui';
 
 export function TimelineView({ tasks }: { tasks: Task[] }) {
   const settings = useSettings();
   const navigate = useNavigate();
-  const sorted = [...tasks].sort((a, b) => new Date(a.due_date || a.created_at).getTime() - new Date(b.due_date || b.created_at).getTime());
+  const key = (v?: string | null) => (parseBd(v) || new Date(0)).getTime();
+  const sorted = [...tasks].sort((a, b) => key(a.due_date || a.created_at) - key(b.due_date || b.created_at));
 
   return (
     <div className="relative space-y-0">

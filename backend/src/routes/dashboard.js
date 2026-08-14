@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { db } from '../db.js';
 import { requireAuth, isAdmin } from '../middleware.js';
-import { dateRangeFromKey, today, dateDaysAgo } from '../utils.js';
+import { dateRangeFromKey, today, dateDaysAgo, bdNow } from '../utils.js';
 import { getSettings } from '../config.js';
 import { computeUserKpi } from './kpi.js';
 import { buildTaskFilter, scopeSql } from '../filters.js';
@@ -11,11 +11,12 @@ router.use(requireAuth);
 
 function series(days, key = 'day') {
   const out = [];
+  const base = bdNow();
   for (let i = days - 1; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
+    const d = new Date(base);
+    d.setUTCDate(d.getUTCDate() - i);
     out.push({
-      day: key === 'month' ? d.toLocaleString('en', { month: 'short' }) : d.toLocaleDateString('en', { month: 'short', day: 'numeric' }),
+      day: key === 'month' ? d.toLocaleString('en', { month: 'short', timeZone: 'UTC' }) : d.toLocaleDateString('en', { month: 'short', day: 'numeric', timeZone: 'UTC' }),
       date: d.toISOString().slice(0, 10),
     });
   }

@@ -88,8 +88,8 @@ export function setSetting(key, value) {
     merged = existing ? { ...existing, ...value } : value;
   }
   db.prepare(`
-    INSERT INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now'))
-    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')
+    INSERT INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now','+6 hours'))
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now','+6 hours')
   `).run(key, JSON.stringify(merged));
   cache = null;
 }

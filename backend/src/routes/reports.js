@@ -3,7 +3,7 @@ import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 import { db } from '../db.js';
 import { requireAuth, requireAdmin, isAdmin } from '../middleware.js';
-import { dateRangeFromKey } from '../utils.js';
+import { dateRangeFromKey, bdNow } from '../utils.js';
 import { getSettings } from '../config.js';
 import { computeUserKpi } from './kpi.js';
 
@@ -52,15 +52,17 @@ function computeAnalytics(user, dateKey) {
   const type = db.prepare(`SELECT task_type, COUNT(*) c FROM tasks WHERE ${scope} GROUP BY task_type`).all();
 
   const monthly = [];
+  const nowBd = bdNow();
+  const curY = nowBd.getUTCFullYear();
+  const curM = nowBd.getUTCMonth();
   for (let i = 11; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(1);
-    d.setMonth(d.getMonth() - i);
-    const m = d.toISOString().slice(0, 7);
+    let y = curY, m = curM - i;
+    while (m < 0) { m += 12; y -= 1; }
+    const key = `${y}-${String(m + 1).padStart(2, '0')}`;
     monthly.push({
-      month: d.toLocaleString('en', { month: 'short' }),
-      added: db.prepare(`SELECT COUNT(*) c FROM tasks WHERE ${scope} AND strftime('%Y-%m', created_at) = ?`).get(m).c,
-      done: db.prepare(`SELECT COUNT(*) c FROM tasks WHERE ${scope} AND strftime('%Y-%m', completed_at) = ?`).get(m).c,
+      month: new Date(Date.UTC(y, m, 1)).toLocaleString('en', { month: 'short', timeZone: 'UTC' }),
+      added: db.prepare(`SELECT COUNT(*) c FROM tasks WHERE ${scope} AND strftime('%Y-%m', created_at) = ?`).get(key).c,
+      done: db.prepare(`SELECT COUNT(*) c FROM tasks WHERE ${scope} AND strftime('%Y-%m', completed_at) = ?`).get(key).c,
     });
   }
 
@@ -113,14 +115,14 @@ function toLocal(dt, offsetMin) {
   if (dt === null || dt === undefined || dt === '') return '';
   const s = String(dt);
   if (s.length <= 10) return s;
-  let iso = s.includes('T') ? s : s.replace(' ', 'T');
-  if (!/[zZ]|[+-]\d{2}:?\d{2}$/.test(iso)) iso += 'Z';
-  const d = new Date(iso);
+  const hasTz = /[zZ]|[+-]\d{2}:?\d{2}$/.test(s);
+  if (!hasTz) return s.replace('T', ' ').slice(0, 19);
+  const d = new Date(s);
   if (isNaN(d.getTime())) return s;
-  if (offsetMin !== undefined && offsetMin !== null && offsetMin !== '') d.setMinutes(d.getMinutes() + Number(offsetMin));
+  const bd = new Date(d.getTime() + 6 * 60 * 60 * 1000);
   const p = (n) => String(n).padStart(2, '0');
   const hasSec = /:\d{2}:\d{2}/.test(s);
-  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}${hasSec ? ':' + p(d.getUTCSeconds()) : ''}`;
+  return `${bd.getUTCFullYear()}-${p(bd.getUTCMonth() + 1)}-${p(bd.getUTCDate())} ${p(bd.getUTCHours())}:${p(bd.getUTCMinutes())}${hasSec ? ':' + p(bd.getUTCSeconds()) : ''}`;
 }
 
 const CHART_COLORS = ['#6366f1', '#22c55e', '#f97316', '#3b82f6', '#a855f7', '#eab308', '#ef4444', '#14b8a6', '#ec4899', '#64748b'];

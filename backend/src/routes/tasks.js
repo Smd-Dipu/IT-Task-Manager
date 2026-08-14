@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { db } from '../db.js';
 import { requireAuth, requireAdmin, isAdmin, audit, logHistory, notify } from '../middleware.js';
-import { dateRangeFromKey, today } from '../utils.js';
+import { dateRangeFromKey, today, now } from '../utils.js';
 import { getStatusById, getPriorityById, getDifficultyById } from '../config.js';
 
 const router = Router();
@@ -329,7 +329,7 @@ router.put('/:id', loadTask, (req, res) => {
       if (f === 'status' && b[f] !== oldStatus) {
         logHistory(id, req.user.id, 'status.change', 'status', oldStatus, b[f]);
         if (b[f] === 'done') {
-          db.prepare('UPDATE tasks SET completed_at = datetime(\'now\') WHERE id = ?').run(id);
+          db.prepare('UPDATE tasks SET completed_at = datetime(\'now\',\'+6 hours\') WHERE id = ?').run(id);
         } else if (oldStatus === 'done') {
           db.prepare('UPDATE tasks SET completed_at = NULL WHERE id = ?').run(id);
         }
@@ -356,7 +356,7 @@ router.put('/:id', loadTask, (req, res) => {
     }
   }
 
-  sets.push('updated_at = datetime(\'now\')');
+  sets.push('updated_at = datetime(\'now\',\'+6 hours\')');
   if (sets.length) db.prepare(`UPDATE tasks SET ${sets.join(', ')} WHERE id = ?`).run(...params, id);
   audit(req, 'task.update', 'task', id, `Updated task "${b.title || t.title}"`);
   res.json(taskJson(db.prepare('SELECT * FROM tasks WHERE id = ?').get(id)));
@@ -396,8 +396,8 @@ router.put('/:id/assignees/:userId/progress', loadTask, (req, res) => {
   const p = Math.max(0, Math.min(100, Number(progress) || 0));
   const newStatus = p >= 100 ? 'done' : a.status;
   db.prepare(`UPDATE task_assignees SET progress = ?, status = ?, completed_at = ? WHERE id = ?`)
-    .run(p, newStatus, p >= 100 ? new Date().toISOString() : null, a.id);
-  db.prepare('UPDATE tasks SET updated_at = datetime(\'now\') WHERE id = ?').run(id);
+    .run(p, newStatus, p >= 100 ? now() : null, a.id);
+  db.prepare('UPDATE tasks SET updated_at = datetime(\'now\',\'+6 hours\') WHERE id = ?').run(id);
   if (p >= 100 && a.status !== 'done') {
     logHistory(id, req.user.id, 'assignee.complete', 'progress', a.progress, 100);
     notify(db.prepare('SELECT created_by FROM tasks WHERE id=?').get(id).created_by, 'task', 'Assignee completed task', `Progress for task updated`, `/tasks/${id}`);
@@ -412,11 +412,11 @@ router.post('/:id/status', loadTask, (req, res) => {
   const { status } = req.body || {};
   const t = req.task;
   if (!status) return res.status(400).json({ error: 'status required' });
-  db.prepare('UPDATE tasks SET status = ?, updated_at = datetime(\'now\') WHERE id = ?').run(status, id);
+  db.prepare('UPDATE tasks SET status = ?, updated_at = datetime(\'now\',\'+6 hours\') WHERE id = ?').run(status, id);
   db.prepare('UPDATE task_assignees SET status = ? WHERE task_id = ? AND status != \'done\'').run(status, id);
   if (status === 'done') {
-    db.prepare('UPDATE tasks SET completed_at = datetime(\'now\'), progress = 100 WHERE id = ?').run(id);
-    db.prepare('UPDATE task_assignees SET progress = 100, completed_at = datetime(\'now\') WHERE task_id = ?').run(id);
+    db.prepare('UPDATE tasks SET completed_at = datetime(\'now\',\'+6 hours\'), progress = 100 WHERE id = ?').run(id);
+    db.prepare('UPDATE task_assignees SET progress = 100, completed_at = datetime(\'now\',\'+6 hours\') WHERE task_id = ?').run(id);
   } else {
     db.prepare('UPDATE tasks SET completed_at = NULL WHERE id = ?').run(id);
   }
@@ -462,7 +462,7 @@ router.put('/:id/checklist/:cid', loadTask, (req, res) => {
   const total = db.prepare('SELECT COUNT(*) c FROM task_checklist WHERE task_id = ?').get(c.task_id).c;
   const d = db.prepare('SELECT COALESCE(SUM(done),0) c FROM task_checklist WHERE task_id = ?').get(c.task_id).c;
   const pct = total ? Math.round((d / total) * 100) : 0;
-  db.prepare('UPDATE tasks SET progress = ?, updated_at = datetime(\'now\') WHERE id = ? AND status NOT IN (\'done\',\'cancelled\')').run(pct, c.task_id);
+  db.prepare('UPDATE tasks SET progress = ?, updated_at = datetime(\'now\',\'+6 hours\') WHERE id = ? AND status NOT IN (\'done\',\'cancelled\')').run(pct, c.task_id);
   res.json(db.prepare('SELECT * FROM task_checklist WHERE id = ?').get(c.id));
 });
 
@@ -498,10 +498,10 @@ router.post('/:id/approvals/:aid', loadTask, (req, res) => {
   if (!a) return res.status(404).json({ error: 'Approval not found' });
   if (a.task_id !== Number(req.params.id)) return res.status(400).json({ error: 'Approval does not belong to this task' });
   const { status, comment } = req.body || {};
-  db.prepare('UPDATE approvals SET status = ?, comment = COALESCE(?, comment), updated_at = datetime(\'now\') WHERE id = ?')
+  db.prepare('UPDATE approvals SET status = ?, comment = COALESCE(?, comment), updated_at = datetime(\'now\',\'+6 hours\') WHERE id = ?')
     .run(status || 'approved', comment ?? null, a.id);
   const pending = db.prepare('SELECT COUNT(*) c FROM approvals WHERE task_id = ? AND status = \'pending\'').get(a.task_id).c;
-  db.prepare('UPDATE tasks SET approval_status = ?, updated_at = datetime(\'now\') WHERE id = ?')
+  db.prepare('UPDATE tasks SET approval_status = ?, updated_at = datetime(\'now\',\'+6 hours\') WHERE id = ?')
     .run(pending ? 'pending' : (status || 'approved'), a.task_id);
   notify(a.requester_id, 'approval', 'Approval updated', `Your approval request was ${status}`, `/tasks/${a.task_id}`);
   res.json({ ok: true });
@@ -511,7 +511,7 @@ router.post('/:id/time', loadTask, (req, res) => {
   const { hours, note, date } = req.body || {};
   if (hours === undefined || hours === null || isNaN(Number(hours))) return res.status(400).json({ error: 'hours required' });
   const r = db.prepare('INSERT INTO time_entries (task_id, user_id, hours, note, date) VALUES (?, ?, ?, ?, ?)')
-    .run(req.params.id, req.user.id, Number(hours), note || '', date || new Date().toISOString().slice(0, 10));
+    .run(req.params.id, req.user.id, Number(hours), note || '', date || today());
   res.json(db.prepare('SELECT * FROM time_entries WHERE id = ?').get(Number(r.lastInsertRowid)));
 });
 

@@ -101,6 +101,7 @@ production guide.
 - Premium glassmorphism cards, gradient accents, smooth animations, fully responsive
 - Dark/Light mode with persisted preference
 - Global search, notification center, quick actions, color-coded statuses
+- All dates and times are displayed in Bangladesh Standard Time (UTC+6) — dashboards, reports, KPI trends, exports, and "today"/overdue logic all use the Dhaka timezone
 
 ## Project Structure
 

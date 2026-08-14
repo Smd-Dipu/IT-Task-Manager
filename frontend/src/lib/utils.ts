@@ -4,27 +4,59 @@ export function cx(...args: (string | false | null | undefined)[]) {
   return args.filter(Boolean).join(' ');
 }
 
+const BD_OFFSET_MS = 6 * 60 * 60 * 1000;
+
+export function parseBd(s?: string | null): Date | null {
+  if (!s) return null;
+  let iso = s.includes('T') ? s : s.replace(' ', 'T');
+  if (iso.length <= 10) iso += 'T00:00:00';
+  if (!/[zZ]|[+-]\d{2}:?\d{2}$/.test(iso)) iso += '+06:00';
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function toBdUTC(d: Date): Date {
+  return new Date(d.getTime() + BD_OFFSET_MS);
+}
+
+export function bdDateKey(): string {
+  return toBdUTC(new Date()).toISOString().slice(0, 10);
+}
+
+export function bdAddDays(key: string, n: number): string {
+  const d = parseBd(key);
+  if (!d) return key;
+  d.setDate(d.getDate() + n);
+  return toBdUTC(d).toISOString().slice(0, 10);
+}
+
 export function timeAgo(iso?: string | null): string {
   if (!iso) return '';
-  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  const d = parseBd(iso);
+  if (!d) return '';
+  const s = Math.floor((Date.now() - d.getTime()) / 1000);
   if (s < 60) return 'just now';
   const m = Math.floor(s / 60);
   if (m < 60) return `${m}m ago`;
   const h = Math.floor(m / 60);
   if (h < 24) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  if (d < 30) return `${d}d ago`;
-  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  const dd = Math.floor(h / 24);
+  if (dd < 30) return `${dd}d ago`;
+  return fmtDate(iso);
 }
 
 export function fmtDate(iso?: string | null): string {
   if (!iso) return '—';
-  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  const d = parseBd(iso);
+  if (!d) return '—';
+  return toBdUTC(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 }
 
 export function fmtDateTime(iso?: string | null): string {
   if (!iso) return '—';
-  return new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const d = parseBd(iso);
+  if (!d) return '—';
+  return toBdUTC(d).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'UTC' });
 }
 
 export function initials(name?: string): string {
@@ -50,15 +82,13 @@ export function localDateKey(d: Date): string {
 export function isOverdue(task: { due_date?: string | null; status?: string }): boolean {
   if (!task.due_date || !task.status) return false;
   if (task.status === 'done' || task.status === 'cancelled') return false;
-  return task.due_date < localDateKey(new Date());
+  return task.due_date < bdDateKey();
 }
 
 export function isDueSoon(task: { due_date?: string | null; status?: string }, days = 1): boolean {
   if (!task.due_date || !task.status) return false;
   if (task.status === 'done' || task.status === 'cancelled') return false;
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return task.due_date <= localDateKey(d) && task.due_date >= localDateKey(new Date());
+  return task.due_date <= bdAddDays(bdDateKey(), days) && task.due_date >= bdDateKey();
 }
 
 export function statusById(settings: Settings | null, id?: string): StatusMeta {

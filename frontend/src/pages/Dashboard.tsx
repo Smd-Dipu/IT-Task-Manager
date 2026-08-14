@@ -83,7 +83,7 @@ export default function Dashboard() {
         <div>
           <div className="flex items-center gap-2 text-sm text-ink2 mb-1">
             <Sparkles size={15} className="text-brand" />
-            {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+            {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'Asia/Dhaka' })}
           </div>
           <h1 className="text-2xl md:text-3xl font-extrabold">
             {isAdmin ? 'Executive Dashboard' : `Welcome back, ${user.name.split(' ')[0]}`}

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Task } from '../../lib/types';
 import { useSettings } from '../../lib/settings';
-import { statusById, cx } from '../../lib/utils';
+import { statusById, cx, bdDateKey } from '../../lib/utils';
 import { Badge } from '../ui';
 
 function localDateKey(d: Date): string {
@@ -47,7 +47,7 @@ export function CalendarView({ tasks }: { tasks: Task[] }) {
   }, [cursor, tasks]);
 
   const monthLabel = cursor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-  const todayKey = localDateKey(new Date());
+  const todayKey = bdDateKey();
 
   return (
     <div className="card overflow-hidden">

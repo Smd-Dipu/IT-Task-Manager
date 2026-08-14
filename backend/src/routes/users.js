@@ -101,7 +101,7 @@ router.put('/:id', requireAdmin, (req, res) => {
   db.prepare(`
     UPDATE users SET name = COALESCE(?, name), role = COALESCE(?, role), title = COALESCE(?, title),
       phone = COALESCE(?, phone), team_id = ?, department_id = ?,
-      is_active = ?, updated_at = datetime('now') WHERE id = ?
+      is_active = ?, updated_at = datetime('now','+6 hours') WHERE id = ?
   `).run(name ?? null, role ?? null, title ?? null, phone ?? null, team_id || null, department_id || null, is_active === undefined ? u.is_active : (is_active ? 1 : 0), id);
   audit(req, 'user.update', 'user', id, `Updated user ${name || u.name} (${role || u.role})`);
   if (u.role === 'user' && role && role !== 'user' && is_active === 1) {

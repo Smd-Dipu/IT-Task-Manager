@@ -30,7 +30,7 @@ export default function Reports() {
 
   useEffect(() => { load(dateKey); }, [dateKey, load]);
 
-  const tzOffset = -new Date().getTimezoneOffset();
+  const tzOffset = 360;
   const exp = (type: string, format: string) => `/reports/export?type=${type}&format=${format}&dateKey=${dateKey}&tzOffset=${tzOffset}`;
   const doExport = async (path: string, file: string) => {
     try { await downloadExport(path, file); } catch (e: any) { toast(e.message, 'error'); }

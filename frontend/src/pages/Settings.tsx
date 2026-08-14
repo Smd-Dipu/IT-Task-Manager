@@ -4,7 +4,7 @@ import { api, downloadExport } from '../lib/api';
 import type { Settings } from '../lib/types';
 import { useSetSettings } from '../lib/settings';
 import { Switch, Modal, useToast, ConfirmModal, Badge } from '../components/ui';
-import { cx } from '../lib/utils';
+import { cx, bdDateKey } from '../lib/utils';
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -99,7 +99,7 @@ export default function SettingsPage() {
   const runBackup = async () => {
     setBackingUp(true);
     try {
-      const stamp = new Date().toISOString().slice(0, 10);
+      const stamp = bdDateKey();
       await downloadExport('/settings/backup', `taskflow-backup-${stamp}.taskflow`);
       toast('Full backup downloaded');
     } catch (e: any) { toast(e.message, 'error'); }

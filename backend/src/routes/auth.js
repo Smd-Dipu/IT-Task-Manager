@@ -43,7 +43,7 @@ router.post('/login', (req, res) => {
     return res.status(401).json({ error: 'Invalid email or password' });
   }
   if (!user.is_active) return res.status(403).json({ error: 'Your account has been deactivated. Contact an administrator.' });
-  db.prepare('UPDATE users SET last_login = datetime(\'now\') WHERE id = ?').run(user.id);
+  db.prepare('UPDATE users SET last_login = datetime(\'now\',\'+6 hours\') WHERE id = ?').run(user.id);
   const token = signToken(user);
   req.user = user;
   audit(req, 'auth.login', 'user', user.id, 'User signed in');

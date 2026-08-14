@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { db } from '../db.js';
 import { requireAuth, requireAdmin } from '../middleware.js';
-import { dateRangeFromKey } from '../utils.js';
+import { dateRangeFromKey, bdNow } from '../utils.js';
 import { getSettings, getDifficultyById, getPriorityById } from '../config.js';
 
 const router = Router();
@@ -126,12 +126,15 @@ router.get('/overview', requireAdmin, (req, res) => {
   }
 
   const months = [];
-  const now = new Date();
+  const nowBd = bdNow();
+  const curY = nowBd.getUTCFullYear();
+  const curM = nowBd.getUTCMonth();
   for (let i = 11; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const label = d.toLocaleString('en', { month: 'short' });
-    const s = new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
-    const e = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString();
+    let y = curY, m = curM - i;
+    while (m < 0) { m += 12; y -= 1; }
+    const label = new Date(Date.UTC(y, m, 1)).toLocaleString('en', { month: 'short', timeZone: 'UTC' });
+    const s = `${y}-${String(m + 1).padStart(2, '0')}-01`;
+    const e = `${y}-${String(m + 1).padStart(2, '0')}-${String(new Date(Date.UTC(y, m + 1, 0)).getUTCDate()).padStart(2, '0')}`;
     const listMonth = buildKpiForUsers(s, e);
     const avg = listMonth.length ? Math.round(listMonth.reduce((a, b) => a + b.score, 0) / listMonth.length) : 0;
     months.push({ month: label, avgScore: avg, totalCompleted: listMonth.reduce((a, b) => a + b.completed, 0) });
@@ -139,9 +142,9 @@ router.get('/overview', requireAdmin, (req, res) => {
 
   const years = [];
   for (let i = 3; i >= 0; i--) {
-    const y = now.getFullYear() - i;
-    const s = new Date(y, 0, 1).toISOString();
-    const e = new Date(y, 11, 31).toISOString();
+    const y = curY - i;
+    const s = `${y}-01-01`;
+    const e = `${y}-12-31`;
     const listYear = buildKpiForUsers(s, e);
     years.push({
       year: String(y),

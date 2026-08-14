@@ -1,91 +1,106 @@
-export function today() { return new Date().toISOString().slice(0, 10); }
+export const BD_OFFSET_MS = 6 * 60 * 60 * 1000;
 
-export function now() { return new Date().toISOString().replace('T', ' ').slice(0, 19); }
+function bdVirtual(ms = Date.now()) {
+  return new Date(ms + BD_OFFSET_MS);
+}
 
-export function isoNow() { return new Date().toISOString(); }
+export function bdNow() { return bdVirtual(); }
+
+export function today() { return bdNow().toISOString().slice(0, 10); }
+
+export function now() { return bdNow().toISOString().replace('T', ' ').slice(0, 19); }
+
+export function isoNow() { return bdNow().toISOString(); }
 
 export function daysAgoISO(n) {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
+  const d = bdNow();
+  d.setUTCDate(d.getUTCDate() - n);
   return d.toISOString();
 }
 
 export function dateDaysAgo(n) {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
+  const d = bdNow();
+  d.setUTCDate(d.getUTCDate() - n);
   return d.toISOString().slice(0, 10);
 }
 
 export function addDays(dateStr, n) {
-  const d = new Date(dateStr);
-  d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
+  const y = Number(dateStr.slice(0, 4));
+  const mo = Number(dateStr.slice(5, 7));
+  const d = Number(dateStr.slice(8, 10));
+  return new Date(Date.UTC(y, mo - 1, d + n)).toISOString().slice(0, 10);
 }
 
 export function startOfMonth() {
-  const d = new Date();
-  d.setDate(1);
-  d.setHours(0, 0, 0, 0);
-  return d;
+  const b = bdNow();
+  return new Date(Date.UTC(b.getUTCFullYear(), b.getUTCMonth(), 1));
 }
 
 export function startOfYear() {
-  const d = new Date();
-  d.setMonth(0, 1);
-  d.setHours(0, 0, 0, 0);
-  return d;
+  const b = bdNow();
+  return new Date(Date.UTC(b.getUTCFullYear(), 0, 1));
 }
 
 function fmtDT(d) { return d.toISOString().replace('T', ' ').slice(0, 19); }
 
 export function dateRangeFromKey(key, custom = null) {
-  const now = new Date();
+  const now = bdNow();
   let end = new Date(now);
   let start;
   switch (key) {
     case 'today': start = new Date(now); break;
-    case 'yesterday': start = new Date(now); start.setDate(start.getDate() - 1); end.setDate(end.getDate() - 1); break;
-    case '7d': start = new Date(now); start.setDate(start.getDate() - 7); break;
-    case '30d': start = new Date(now); start.setDate(start.getDate() - 30); break;
-    case '90d': start = new Date(now); start.setDate(start.getDate() - 90); break;
-    case '180d': start = new Date(now); start.setDate(start.getDate() - 180); break;
-    case 'month': start = new Date(now.getFullYear(), now.getMonth(), 1); break;
-    case 'year': start = new Date(now.getFullYear(), 0, 1); break;
+    case 'yesterday': start = new Date(now); start.setUTCDate(start.getUTCDate() - 1); end.setUTCDate(end.getUTCDate() - 1); break;
+    case '7d': start = new Date(now); start.setUTCDate(start.getUTCDate() - 7); break;
+    case '30d': start = new Date(now); start.setUTCDate(start.getUTCDate() - 30); break;
+    case '90d': start = new Date(now); start.setUTCDate(start.getUTCDate() - 90); break;
+    case '180d': start = new Date(now); start.setUTCDate(start.getUTCDate() - 180); break;
+    case 'month': start = new Date(now); start.setUTCDate(1); break;
+    case 'year': start = new Date(now); start.setUTCMonth(0, 1); break;
     case 'custom':
       {
         const from = new Date(custom?.from);
         const to = custom?.to ? new Date(custom.to) : null;
         if (isNaN(from.getTime()) || (to && isNaN(to.getTime()))) {
-          start = new Date(now); start.setDate(start.getDate() - 30);
+          start = new Date(now); start.setUTCDate(start.getUTCDate() - 30);
         } else {
           start = from;
           if (to) end = new Date(to);
         }
         break;
       }
-    default: start = new Date(now); start.setDate(start.getDate() - 30); break;
+    default: start = new Date(now); start.setUTCDate(start.getUTCDate() - 30); break;
   }
-  start.setHours(0, 0, 0, 0);
-  end.setHours(23, 59, 59, 999);
+  start.setUTCHours(0, 0, 0, 0);
+  end.setUTCHours(23, 59, 59, 999);
   return { start: fmtDT(start), end: fmtDT(end) };
 }
 
 export function prettyDate(iso) {
   if (!iso) return '—';
+  const s = String(iso);
+  if (s.length <= 10) {
+    const d = new Date(s.length === 10 ? s + 'T00:00:00+06:00' : s);
+    if (isNaN(d.getTime())) return s;
+    return new Date(d.getTime()).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  }
   const d = new Date(iso);
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 export function timeAgo(iso) {
   if (!iso) return '';
-  const s = Math.floor((Date.now() - new Date(iso)) / 1000);
-  if (s < 60) return 'just now';
-  const m = Math.floor(s / 60);
+  const s = String(iso);
+  const t = s.length <= 10 ? s + 'T00:00:00+06:00' : (s.includes('T') ? s : s.replace(' ', 'T'));
+  const d = new Date(t);
+  const diff = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (isNaN(diff)) return '';
+  if (diff < 60) return 'just now';
+  const m = Math.floor(diff / 60);
   if (m < 60) return `${m}m ago`;
   const h = Math.floor(m / 60);
   if (h < 24) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  if (d < 30) return `${d}d ago`;
+  const dd = Math.floor(h / 24);
+  if (dd < 30) return `${dd}d ago`;
   return prettyDate(iso);
 }
 
