@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 :root {
+  color-scheme: light;
   --bg: 244 246 250;
   --bg-2: 255 255 255;
   --card: 255 255 255;
@@ -21,6 +22,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   --bg: 9 11 21;
   --bg-2: 13 16 28;
   --card: 18 22 38;

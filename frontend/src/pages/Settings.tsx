@@ -170,8 +170,8 @@ export default function SettingsPage() {
             <span key={s.id} className="chip !py-1 !pl-2 !pr-1 flex items-center gap-1" style={{ color: s.color, borderColor: s.color, background: `${s.color}14` }}>
               <span className="w-2 h-2 rounded-full" style={{ background: s.color }} />
               <span className="mx-0.5">{s.name}</span>
-              <button title="Edit status" onClick={() => { setEditStatus(s); setStatusModal(true); }} className="p-1 rounded hover:bg-black/5 transition-colors"><Pencil size={12} /></button>
-              <button title="Delete status" onClick={() => setDelStatus(s)} className="p-1 rounded hover:bg-black/5 transition-colors text-bad"><Trash2 size={12} /></button>
+              <button title="Edit status" onClick={() => { setEditStatus(s); setStatusModal(true); }} className="p-1 rounded hover:bg-line/60 transition-colors"><Pencil size={12} /></button>
+              <button title="Delete status" onClick={() => setDelStatus(s)} className="p-1 rounded hover:bg-line/60 transition-colors text-bad"><Trash2 size={12} /></button>
             </span>
           ))}
         </div>
@@ -189,8 +189,8 @@ export default function SettingsPage() {
           {settings.priorities.map((p) => (
             <span key={p.id} className="chip !py-1 !pl-2 !pr-1 flex items-center gap-1" style={{ color: p.color, borderColor: p.color, background: `${p.color}14` }}>
               {p.name} <span className="opacity-60">(w{p.weight})</span>
-              <button title="Edit priority" onClick={() => { setEditPrio({ id: p.id, name: p.name, color: p.color, weight: p.weight }); setPrioModal(true); }} className="p-1 rounded hover:bg-black/5 transition-colors"><Pencil size={12} /></button>
-              <button title="Delete priority" onClick={() => setDelPrio(p)} className="p-1 rounded hover:bg-black/5 transition-colors text-bad"><Trash2 size={12} /></button>
+              <button title="Edit priority" onClick={() => { setEditPrio({ id: p.id, name: p.name, color: p.color, weight: p.weight }); setPrioModal(true); }} className="p-1 rounded hover:bg-line/60 transition-colors"><Pencil size={12} /></button>
+              <button title="Delete priority" onClick={() => setDelPrio(p)} className="p-1 rounded hover:bg-line/60 transition-colors text-bad"><Trash2 size={12} /></button>
             </span>
           ))}
         </div>
