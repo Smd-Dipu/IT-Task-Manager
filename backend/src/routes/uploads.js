@@ -6,7 +6,6 @@ import { db, UPLOAD_DIR } from '../db.js';
 import { requireAuth, isAdmin, audit } from '../middleware.js';
 
 const router = Router();
-router.use(requireAuth);
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, UPLOAD_DIR),
@@ -21,7 +20,7 @@ const upload = multer({
 });
 const avatarUpload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 50 * 1024 },
   fileFilter: (req, file, cb) => cb(null, /^image\/(png|jpe?g|gif|webp)$/i.test(file.mimetype || '')),
 });
 
@@ -31,7 +30,7 @@ function removeFiles(files) {
   }
 }
 
-router.post('/task/:taskId', upload.array('files', 10), (req, res) => {
+router.post('/task/:taskId', requireAuth, upload.array('files', 10), (req, res) => {
   const taskId = Number(req.params.taskId);
   const files = req.files || [];
   const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId);
@@ -61,8 +60,8 @@ router.post('/task/:taskId', upload.array('files', 10), (req, res) => {
   res.json(saved);
 });
 
-router.post('/avatar', avatarUpload.single('avatar'), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'Only PNG, JPEG, GIF or WebP images are allowed' });
+router.post('/avatar', requireAuth, avatarUpload.single('avatar'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Only PNG, JPEG, GIF or WebP images up to 50KB are allowed' });
   const url = `/api/uploads/avatar/${req.file.filename}`;
   db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(url, req.user.id);
   audit(req, 'user.avatar', 'user', req.user.id, 'Updated profile picture');
@@ -91,7 +90,7 @@ router.get('/avatar/:name', (req, res) => {
   fs.createReadStream(filePath).pipe(res);
 });
 
-router.delete('/:attachmentId', (req, res) => {
+router.delete('/:attachmentId', requireAuth, (req, res) => {
   const a = db.prepare('SELECT * FROM task_attachments WHERE id = ?').get(req.params.attachmentId);
   if (!a) return res.status(404).json({ error: 'Attachment not found' });
   if (a.user_id !== req.user.id && !isAdmin(req.user)) return res.status(403).json({ error: 'No access to this attachment' });

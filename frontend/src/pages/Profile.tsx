@@ -46,6 +46,8 @@ export default function Profile() {
   };
 
   const uploadAvatar = async (file: File) => {
+    if (!/^image\/(png|jpe?g|gif|webp)$/i.test(file.type)) return toast('Only PNG, JPEG, GIF or WebP images are allowed', 'error');
+    if (file.size > 50 * 1024) return toast('Image must be 50KB or smaller', 'error');
     const fd = new FormData();
     fd.append('avatar', file);
     try {
