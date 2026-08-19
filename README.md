@@ -28,8 +28,10 @@ chmod +x start.sh
 Both scripts automatically verify Node.js 22.5+, install backend & frontend dependencies,
 build the frontend, create a persistent `JWT_SECRET` in `backend/.env`, initialize the SQLite
 database, and start the production server on `http://localhost:3001`
-(specify a port: `start.bat 8080` or `./start.sh 8080`). On Linux,
-`./start.sh --systemd` additionally installs a boot-starting systemd service.
+(specify a port: `start.bat 8080` or `./start.sh 8080`). On Linux, `./start.sh` also
+auto-opens the browser when the server is ready. Additional Linux options:
+`./start.sh --background` runs the server detached in the background with a log file
+and prints its PID, and `./start.sh --systemd` installs a boot-starting systemd service.
 
 For local development with hot reload:
 

@@ -19,7 +19,9 @@ and the app is live at `http://localhost:3001` (built UI + API on a single port)
 | Platform | Command | Result |
 |----------|---------|--------|
 | Windows | `start.bat` | Full setup + starts server; opens the browser |
-| Linux / macOS | `./start.sh` | Full setup + starts server in the foreground |
+| Linux / macOS | `./start.sh` | Full setup + starts server; opens the browser (desktop) |
+| Linux (server) | `./start.sh --background` | Full setup + runs server detached with a log file |
+| Linux (service) | `sudo ./start.sh --systemd` | Full setup + installs a boot-starting systemd service |
 
 Both scripts do the same things automatically:
 
