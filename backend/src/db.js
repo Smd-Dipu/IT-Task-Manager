@@ -288,5 +288,21 @@ CREATE TABLE IF NOT EXISTS task_history (
   new_value TEXT DEFAULT '',
   created_at TEXT NOT NULL DEFAULT (datetime('now','+6 hours'))
 );
+
+CREATE TABLE IF NOT EXISTS priority_tasks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  work_title TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  priority TEXT NOT NULL DEFAULT 'medium',
+  assignee_name TEXT DEFAULT '',
+  assignee_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  status TEXT NOT NULL DEFAULT 'todo',
+  due_date TEXT DEFAULT '',
+  remarks TEXT DEFAULT '',
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now','+6 hours')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now','+6 hours'))
+);
 `);
 migrate();

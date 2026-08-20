@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, ListTodo, Users, Building2, UserCog, Award, BarChart3,
   ScrollText, Settings as SettingsIcon, LogOut, Bell, Search, Sun, Moon,
-  Menu, X, ChevronRight, UserCircle, CalendarDays, ShieldCheck,
+  Menu, X, ChevronRight, UserCircle, CalendarDays, ShieldCheck, Flag,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { useTheme } from '../lib/theme';
@@ -63,6 +63,7 @@ export function Layout() {
     const main = [
       { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { to: '/tasks', label: 'Tasks', icon: ListTodo },
+      { to: '/priority-tasks', label: 'Priority Task', icon: Flag },
     ];
     const admin = [
       { to: '/users', label: 'Users', icon: UserCog },

@@ -114,6 +114,32 @@ export interface Comment {
   avatar?: string;
 }
 
+export interface PriorityTask {
+  id: number;
+  work_title: string;
+  description?: string;
+  priority: string;
+  assignee_name?: string;
+  assignee_user_id?: number | null;
+  assignee_avatar?: string;
+  status: string;
+  due_date?: string | null;
+  remarks?: string;
+  created_by?: number | null;
+  updated_by?: number | null;
+  created_at: string;
+  updated_at: string;
+  priority_meta?: PriorityMeta;
+  status_meta?: StatusMeta;
+}
+
+export interface UploadResult {
+  imported: number;
+  skipped: number;
+  errors: { row: number; message: string }[];
+  mode: string;
+}
+
 export interface Notification {
   id: number;
   type: string;

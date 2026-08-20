@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Tasks from './pages/Tasks';
 import TaskDetail from './pages/TaskDetail';
+import PriorityTasks from './pages/PriorityTasks';
 import Users from './pages/Users';
 import Teams from './pages/Teams';
 import Departments from './pages/Departments';
@@ -39,6 +40,7 @@ export default function App() {
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/tasks/new" element={<Tasks />} />
         <Route path="/tasks/:id" element={<TaskDetail />} />
+        <Route path="/priority-tasks" element={<PriorityTasks />} />
         <Route path="/users" element={<Protected adminOnly><Users /></Protected>} />
         <Route path="/teams" element={<Protected adminOnly><Teams /></Protected>} />
         <Route path="/departments" element={<Protected adminOnly><Departments /></Protected>} />
