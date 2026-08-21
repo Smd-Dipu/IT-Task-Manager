@@ -301,8 +301,18 @@ CREATE TABLE IF NOT EXISTS priority_tasks (
   remarks TEXT DEFAULT '',
   created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
   updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  transferred_at TEXT DEFAULT '',
+  transferred_task_id INTEGER DEFAULT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now','+6 hours')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now','+6 hours'))
 );
 `);
+
+const ptCols = db.prepare('PRAGMA table_info(priority_tasks)').all().map((c) => c.name);
+if (!ptCols.includes('transferred_at')) {
+  db.exec(`ALTER TABLE priority_tasks ADD COLUMN transferred_at TEXT DEFAULT ''`);
+}
+if (!ptCols.includes('transferred_task_id')) {
+  db.exec('ALTER TABLE priority_tasks ADD COLUMN transferred_task_id INTEGER DEFAULT NULL');
+}
 migrate();

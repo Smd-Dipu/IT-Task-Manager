@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  ListTodo, Upload, Download, Search, Plus, Pencil, Trash2, FileSpreadsheet, Filter, Users,
+  ListTodo, Upload, Download, Search, Plus, Pencil, Trash2, FileSpreadsheet, Filter, Users, ArrowRightToLine, ExternalLink,
 } from 'lucide-react';
 import { api, downloadExport } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -17,6 +18,7 @@ export default function PriorityTasks() {
   const { isAdmin } = useAuth();
   const settings = useSettings();
   const toast = useToast();
+  const navigate = useNavigate();
 
   const [items, setItems] = useState<PriorityTask[]>([]);
   const [loading, setLoading] = useState(true);
@@ -132,6 +134,21 @@ export default function PriorityTasks() {
     finally { setDeleting(false); }
   };
 
+  const [transferTarget, setTransferTarget] = useState<PriorityTask | null>(null);
+  const [transferring, setTransferring] = useState(false);
+
+  const doTransfer = async () => {
+    if (!transferTarget) return;
+    setTransferring(true);
+    try {
+      const r = await api.post<PriorityTask>(`/priority-tasks/${transferTarget.id}/transfer`);
+      toast(`Transferred to task #${r.transferred_task_id}`);
+      setTransferTarget(null);
+      await load();
+    } catch (e: any) { toast(e.message, 'error'); }
+    finally { setTransferring(false); }
+  };
+
   const downloadTemplate = async () => {
     try { await downloadExport('/priority-tasks/template', 'priority-task-template.xlsx'); }
     catch (e: any) { toast(e.message, 'error'); }
@@ -227,6 +244,16 @@ export default function PriorityTasks() {
                     {pm && <Badge color={pm.color}>{pm.name}</Badge>}
                     {sm && <Badge color={sm.color} dot>{sm.name}</Badge>}
                     {overdue && <Badge color="#ef4444">Overdue</Badge>}
+                    {item.transferred_at && (
+                      <button
+                        onClick={() => item.transferred_task_id && navigate(`/tasks/${item.transferred_task_id}`)}
+                        className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
+                        style={{ color: '#22c55e', background: '#22c55e1a', border: '1px solid #22c55e33' }}
+                        title="Opened in Tasks"
+                      >
+                        <ExternalLink size={10} /> Transferred{item.transferred_task_id ? ` #${item.transferred_task_id}` : ''}
+                      </button>
+                    )}
                   </div>
                   {item.description && <p className="text-sm text-ink2 mt-1 break-words">{item.description}</p>}
                   {item.remarks && <p className="text-xs text-ink3 mt-1 break-words">Note: {item.remarks}</p>}
@@ -249,6 +276,11 @@ export default function PriorityTasks() {
                   </select>
                   {isAdmin && (
                     <>
+                      {!item.transferred_at && (
+                        <button className="p-2 rounded-lg hover:bg-card2 text-ink2 hover:text-ok" title="Transfer to Tasks" onClick={() => setTransferTarget(item)}>
+                          <ArrowRightToLine size={15} />
+                        </button>
+                      )}
                       <button className="p-2 rounded-lg hover:bg-card2 text-ink2 hover:text-brand" title="Edit" onClick={() => openEdit(item)}><Pencil size={15} /></button>
                       <button className="p-2 rounded-lg hover:bg-card2 text-ink2 hover:text-bad" title="Delete" onClick={() => setDeleteTarget(item)}><Trash2 size={15} /></button>
                     </>
@@ -360,6 +392,15 @@ export default function PriorityTasks() {
         message={`"${deleteTarget?.work_title}" will be permanently removed.`}
         confirmLabel={deleting ? 'Deleting...' : 'Delete'}
         danger
+      />
+
+      <ConfirmModal
+        open={!!transferTarget}
+        onClose={() => setTransferTarget(null)}
+        onConfirm={doTransfer}
+        title="Transfer to Tasks?"
+        message={`"${transferTarget?.work_title}" will be copied into the main task list as a backup, tagged as a Priority Task.`}
+        confirmLabel={transferring ? 'Transferring...' : 'Transfer'}
       />
     </div>
   );

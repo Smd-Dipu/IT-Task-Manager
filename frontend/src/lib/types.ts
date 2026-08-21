@@ -127,6 +127,8 @@ export interface PriorityTask {
   remarks?: string;
   created_by?: number | null;
   updated_by?: number | null;
+  transferred_at?: string;
+  transferred_task_id?: number | null;
   created_at: string;
   updated_at: string;
   priority_meta?: PriorityMeta;

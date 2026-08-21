@@ -306,6 +306,39 @@ router.put('/:id', (req, res) => {
   res.json(itemJson(updated));
 });
 
+router.post('/:id/transfer', requireAdmin, (req, res) => {
+  const row = db.prepare('SELECT * FROM priority_tasks WHERE id = ?').get(req.params.id);
+  if (!row) return res.status(404).json({ error: 'Priority task not found' });
+  if (row.transferred_at) {
+    return res.status(400).json({ error: `Already transferred to task #${row.transferred_task_id}` });
+  }
+  const description = [String(row.description || '').trim(), row.remarks && String(row.remarks).trim() ? `Remarks: ${String(row.remarks).trim()}` : ''].filter(Boolean).join('\n');
+  const tags = JSON.stringify(['Priority Task', `src:priority-task-${row.id}`]);
+  const r = db.prepare(`
+    INSERT INTO tasks (
+      title, description, status, priority, difficulty, task_type, flags, tags,
+      budget, estimated_hours, due_date, start_date, created_by, reviewer_id, team_id, department_id,
+      parent_task_id, progress, is_blocked, is_recurring, recurring_rule, is_self_task
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    row.work_title, description, row.status, row.priority, 'medium', 'task', '[]', tags,
+    0, 0, row.due_date || null, null,
+    req.user.id, null, null, null,
+    null, 0, 0, 0, '', 0,
+  );
+  const taskId = Number(r.lastInsertRowid);
+  if (row.assignee_user_id) {
+    db.prepare('INSERT INTO task_assignees (task_id, user_id, status) VALUES (?, ?, ?)')
+      .run(taskId, row.assignee_user_id, row.status);
+  }
+  db.prepare(`
+    UPDATE priority_tasks SET transferred_at = datetime('now','+6 hours'), transferred_task_id = ?, updated_by = ?
+    WHERE id = ?
+  `).run(taskId, req.user.id, row.id);
+  audit(req, 'priority_task.transfer', 'priority_task', row.id, `Transferred "${row.work_title}" to task #${taskId}`);
+  res.json(itemJson(db.prepare('SELECT * FROM priority_tasks WHERE id = ?').get(row.id)));
+});
+
 router.delete('/:id', requireAdmin, (req, res) => {
   const row = db.prepare('SELECT * FROM priority_tasks WHERE id = ?').get(req.params.id);
   if (!row) return res.status(404).json({ error: 'Priority task not found' });
