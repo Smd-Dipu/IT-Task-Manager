@@ -15,6 +15,7 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
 } from 'recharts';
 import { statusById, priorityById, timeAgo, cx } from '../lib/utils';
+import { notifTypeMeta } from '../lib/notifications';
 import { FilterBar } from '../components/FilterBar';
 import { defaultFilters, filterToParams } from '../lib/filters';
 import type { FilterState } from '../lib/filters';
@@ -170,15 +171,20 @@ export default function Dashboard() {
             data={(data?.statusDist || []).map((x) => ({ name: x.name, value: x.count, color: x.color }))} />
           <ChartCard title="My Recent Notifications">
             <div className="space-y-1.5">
-              {(data?.notifications || []).map((n) => (
-                <div key={n.id} className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-card2">
-                  <span className="mt-1.5 w-2 h-2 rounded-full bg-brand shrink-0" />
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium">{n.title}</div>
-                    <div className="text-xs text-ink3 truncate">{n.message} · {timeAgo(n.created_at)}</div>
+              {(data?.notifications || []).map((n) => {
+                const meta = notifTypeMeta(n.type);
+                return (
+                  <div key={n.id} className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-card2">
+                    <span className="mt-0.5 w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${meta.color}1a`, color: meta.color }}>
+                      <meta.icon size={14} />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium">{n.title}</div>
+                      <div className="text-xs text-ink3 truncate">{n.message} · {timeAgo(n.created_at)}</div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {(data?.notifications || []).length === 0 && <div className="text-sm text-ink3 p-4 text-center">No notifications</div>}
             </div>
           </ChartCard>

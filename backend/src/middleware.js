@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'node:crypto';
 import { db } from './db.js';
+import { notify as notifierNotify } from './lib/notifier.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
 if (!process.env.JWT_SECRET) {
@@ -32,6 +33,18 @@ export function requireAuth(req, res, next) {
     next();
   } catch {
     return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+}
+
+export function authUserFromToken(token) {
+  if (!token) return null;
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(payload.id);
+    if (!user || !user.is_active) return null;
+    return user;
+  } catch {
+    return null;
   }
 }
 
@@ -78,9 +91,5 @@ export function logHistory(taskId, userId, action, field = '', oldValue = '', ne
 }
 
 export function notify(userId, type, title, message, link = '') {
-  try {
-    db.prepare(`
-      INSERT INTO notifications (user_id, type, title, message, link) VALUES (?, ?, ?, ?, ?)
-    `).run(userId, type, title, message, link);
-  } catch { /* noop */ }
+  notifierNotify(userId, type, title, message, link);
 }

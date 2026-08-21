@@ -7,10 +7,11 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { useTheme } from '../lib/theme';
-import { api, getToken } from '../lib/api';
 import type { Notification } from '../lib/types';
 import { timeAgo, cx, statusById } from '../lib/utils';
 import { useSettings } from '../lib/settings';
+import { useNotifications } from '../lib/useNotifications';
+import { notifTypeMeta } from '../lib/notifications';
 import { Avatar, Badge } from './ui';
 
 const roleLabel: Record<string, string> = {
@@ -25,22 +26,34 @@ export function Layout() {
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const [notifs, setNotifs] = useState<Notification[]>([]);
-  const [unread, setUnread] = useState(0);
   const [notifOpen, setNotifOpen] = useState(false);
-
-  const loadNotifs = () => {
-    api.get<Notification[]>('/notifications').then((d) => {
-      setNotifs(d);
-      setUnread(d.filter((n) => !n.read).length);
-    }).catch(() => {});
-  };
+  const notifRef = useRef<HTMLDivElement>(null);
+  const { notifs, unread, refresh, markOne, markAll } = useNotifications();
 
   useEffect(() => {
-    loadNotifs();
-    const iv = setInterval(loadNotifs, 20000);
-    return () => clearInterval(iv);
-  }, []);
+    if (!notifOpen) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setNotifOpen(false); };
+    document.addEventListener('mousedown', onDocClick);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [notifOpen]);
+
+  const openBell = () => {
+    refresh();
+    setNotifOpen((o) => !o);
+  };
+
+  const handleNotifClick = async (n: Notification) => {
+    if (!n.read) await markOne(n.id);
+    setNotifOpen(false);
+    if (n.link) navigate(n.link);
+  };
 
   const onSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,14 +62,8 @@ export function Layout() {
     setSearch('');
   };
 
-  const markAll = async () => {
-    await api.put('/notifications/read-all');
-    loadNotifs();
-  };
-  const markOne = async (id: number, link?: string) => {
-    await api.put(`/notifications/${id}/read`);
-    if (link) navigate(link);
-    loadNotifs();
+  const markAllRead = async () => {
+    await markAll();
   };
 
   const navGroups = useMemo(() => {
@@ -166,9 +173,9 @@ export function Layout() {
 
           <div className="flex-1" />
 
-          <div className="relative">
+          <div className="relative" ref={notifRef}>
             <button
-              onClick={() => setNotifOpen((o) => !o)}
+              onClick={openBell}
               className="relative p-2 rounded-lg hover:bg-card2 text-ink2 transition-colors"
             >
               <Bell size={19} />
@@ -182,20 +189,26 @@ export function Layout() {
               <div className="card anim-pop absolute right-0 mt-2 w-96 max-w-[90vw] z-50 overflow-hidden" style={{ background: 'rgb(var(--card))' }}>
                 <div className="flex items-center justify-between px-4 py-3 border-b border-line">
                   <div className="font-semibold text-sm flex items-center gap-2"><Bell size={15} className="text-brand" /> Notifications</div>
-                  <button onClick={markAll} className="text-xs text-brand font-medium hover:underline">Mark all read</button>
+                  {unread > 0 && <button onClick={markAllRead} className="text-xs text-brand font-medium hover:underline">Mark all read</button>}
                 </div>
                 <div className="max-h-[380px] overflow-y-auto">
                   {notifs.length === 0 && <div className="p-8 text-center text-sm text-ink3">No notifications yet</div>}
-                  {notifs.map((n) => (
-                    <button key={n.id} onClick={() => markOne(n.id, n.link)} className="w-full text-left px-4 py-3 hover:bg-card2 border-b border-line last:border-0 flex gap-3">
-                      <span className={cx('mt-1.5 w-2 h-2 rounded-full shrink-0', n.read ? 'bg-line' : 'bg-brand')} />
-                      <div className="min-w-0">
-                        <div className={cx('text-sm truncate', n.read ? 'text-ink2' : 'font-semibold text-ink')}>{n.title}</div>
-                        <div className="text-xs text-ink3 truncate">{n.message}</div>
-                        <div className="text-[10px] text-ink3 mt-0.5">{timeAgo(n.created_at)}</div>
-                      </div>
-                    </button>
-                  ))}
+                  {notifs.map((n) => {
+                    const meta = notifTypeMeta(n.type);
+                    return (
+                      <button key={n.id} onClick={() => handleNotifClick(n)} className="w-full text-left px-4 py-3 hover:bg-card2 border-b border-line last:border-0 flex gap-3">
+                        <span className="mt-0.5 w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${meta.color}1a`, color: meta.color }}>
+                          <meta.icon size={14} />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className={cx('text-sm truncate', n.read ? 'text-ink2' : 'font-semibold text-ink')}>{n.title}</div>
+                          <div className="text-xs text-ink3 truncate">{n.message}</div>
+                          <div className="text-[10px] text-ink3 mt-0.5">{timeAgo(n.created_at)}</div>
+                        </div>
+                        {!n.read && <span className="mt-1.5 w-2 h-2 rounded-full shrink-0 bg-brand" />}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
